@@ -1110,7 +1110,7 @@ Nå: ${WEEKDAY.format(new Date())} (dato ${localDate()}).
     if (!text || busy) return;
     if (!voiceOpen()) showView("home");
     if (!sample) { addBot("Jeg får ikke kontakt med Claude her. Åpne siden fra claude.ai mens du er logget inn.", "error"); return; }
-    busy = true; stopSpeaking();
+    busy = true; speechStart();
     const files = pendingFiles; pendingFiles = []; renderAttachments();
     const images = files.filter((f) => f.image).map((f) => f.blob);
     const textFiles = files.filter((f) => !f.image);
@@ -1125,7 +1125,7 @@ Nå: ${WEEKDAY.format(new Date())} (dato ${localDate()}).
     const history = turns.slice(-16); while (history.length && history[0].role !== "user") history.shift();
     try {
       const opts = { signal: controller.signal, cache: false, modelTier: chooseTier(text, files.length > 0),
-        onText: ({ text }) => { out.m.classList.remove("thinking"); out.t.textContent = text; scrollDown(); voiceShow(text); } };
+        onText: ({ text }) => { out.m.classList.remove("thinking"); out.t.textContent = text; scrollDown(); voiceShow(text); speechFeed(text, false); } };
       if (images.length) opts.images = images;
       const tools = toolsForCall(); if (tools.length) opts.tools = tools;
       const { text: reply, truncated } = await sample([{ role: "user", content: instructions() }, ...history], opts);
@@ -1134,12 +1134,13 @@ Nå: ${WEEKDAY.format(new Date())} (dato ${localDate()}).
       voiceShow(finalText);
       decorate(out.body);
       turns.push({ role: "assistant", content: finalText }); saveTurns();
-      speak(finalText);
+      speechFeed(finalText, true);
     } catch (e) {
       out.m.classList.remove("thinking");
       if (e?.code === "cancelled") { out.t.textContent = e.text || "Stoppet."; if (e.text) turns.push({ role: "assistant", content: e.text }); }
       else { out.t.textContent = friendlyError(e?.code); out.m.classList.add("error"); turns.pop(); voiceShow(friendlyError(e?.code)); }
-      decorate(out.body); saveTurns(); setState("idle"); voiceReady();
+      stopSpeaking(); decorate(out.body); saveTurns(); setState("idle");
+      if (voiceOpen() && e?.code !== "cancelled") speak(out.t.textContent); else voiceReady();
     } finally {
       busy = false; controller = null; setSendMode(false); scrollDown();
     }
@@ -1166,21 +1167,47 @@ Nå: ${WEEKDAY.format(new Date())} (dato ${localDate()}).
     const n = x.name.toLowerCase();
     return (/premium/.test(n) ? 40 : 0) + (/enhanced|forbedret|natural|neural|online/.test(n) ? 30 : 0) + (/nora/.test(n) ? 5 : 0) + (x.localService === false ? 10 : 0);
   }
-  function speak(text) {
-    if (!settings.speak || !synth) { setState("idle"); voiceReady(); return; }
+  // Speaks while the answer is still being written: each finished sentence is queued as soon as it arrives.
+  // speech.gen guards against callbacks from utterances that were cancelled.
+  const speech = { gen: 0, said: 0, pending: 0, done: true };
+  function speechStart() { stopSpeaking(); speech.gen++; speech.said = 0; speech.pending = 0; speech.done = false; }
+  function speechFeed(text, final) {
+    if (speech.done) return;
+    if (!settings.speak || !synth) { if (final) { speech.done = true; setState("idle"); voiceReady(); } return; }
+    let upto = text.length;
+    if (!final) {
+      const rest = text.slice(speech.said); let m, end = -1; const re = /[.!?…:](?=\s)|\n/g;
+      while ((m = re.exec(rest))) end = m.index + 1;
+      if (end < 0) return;
+      upto = speech.said + end;
+    }
+    const chunk = speakable(text.slice(speech.said, upto)); speech.said = upto;
+    if (final) speech.done = true;
+    const parts = (chunk.match(/[^.!?…]+[.!?…]*/g) || []).map((x) => x.trim()).filter((x) => /\p{L}|\d/u.test(x));
     try {
-      synth.cancel();
-      const parts = speakable(text).match(/[^.!?]+[.!?]*/g) || [];
-      if (!parts.length) return setState("idle");
-      const voice = pickVoice(); setState("speaking");
-      parts.forEach((p, n) => {
-        const u = new SpeechSynthesisUtterance(p.trim()); u.lang = voice?.lang || "nb-NO"; if (voice) u.voice = voice; u.rate = Number(settings.rate);
-        if (n === parts.length - 1) { u.onend = () => { if (document.body.dataset.state === "speaking") { setState("idle"); voiceReady(); } }; u.onerror = u.onend; }
-        synth.speak(u);
-      });
-    } catch { setState("idle"); }
+      const voice = pickVoice(), gen = speech.gen;
+      for (const p of parts) {
+        const u = new SpeechSynthesisUtterance(p); u.lang = voice?.lang || "nb-NO"; if (voice) u.voice = voice; u.rate = Number(settings.rate);
+        u.onend = u.onerror = () => { if (gen !== speech.gen) return; speech.pending--; speechMaybeDone(); };
+        speech.pending++; synth.speak(u);
+      }
+      if (parts.length) setState("speaking");
+    } catch { /* speech unavailable */ }
+    speechMaybeDone();
   }
-  function stopSpeaking() { try { synth?.cancel(); } catch { /* ignore */ } if (document.body.dataset.state === "speaking") setState("idle"); }
+  function speechMaybeDone() {
+    if (!speech.done || speech.pending > 0) return;
+    if (document.body.dataset.state === "speaking" || document.body.dataset.state === "thinking") setState("idle");
+    voiceReady();
+  }
+  function speak(text) { speechStart(); speechFeed(text, true); }
+  function stopSpeaking() { speech.gen++; speech.pending = 0; speech.done = true; try { synth?.cancel(); } catch { /* ignore */ } if (document.body.dataset.state === "speaking") setState("idle"); }
+  // Safari (Mac and iPhone) only lets a page talk after a tap; say nothing on the first one to unlock it.
+  if (synth) {
+    const unlock = () => { try { const u = new SpeechSynthesisUtterance(" "); u.volume = 0; synth.speak(u); } catch { /* ignore */ } };
+    document.addEventListener("pointerdown", unlock, { once: true, capture: true });
+    document.addEventListener("keydown", unlock, { once: true, capture: true });
+  }
 
   // ---------- Voice in ----------
   // claude.ai pages may not use the microphone, so inside claude.ai iCONIC hands the listening to the

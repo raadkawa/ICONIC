@@ -153,23 +153,52 @@
       if (p?.properties) d.parameters = p;
       return d;
     }) }] : undefined;
+    // Quick and normal answers skip Gemini's slow "thinking" step; the deepest tier keeps it.
+    let thinking = opts.modelTier === "complex" ? undefined : { thinkingBudget: 0 };
     let all = ""; let truncated = false;
     for (let round = 0; round < MAX_ROUNDS; round++) {
-      const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`, {
+      const request = () => fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:streamGenerateContent?alt=sse`, {
         method: "POST", signal: opts.signal,
         headers: { "content-type": "application/json", "x-goog-api-key": key },
-        body: JSON.stringify({ contents, tools, generationConfig: { maxOutputTokens: 8192 } }),
+        body: JSON.stringify({ contents, tools, generationConfig: { maxOutputTokens: 8192, ...(thinking ? { thinkingConfig: thinking } : {}) } }),
       });
-      const body = await res.json().catch(() => null);
-      if (!res.ok) throw httpError(res.status, body);
-      const cand = body?.candidates?.[0];
-      if (!cand) throw fail(body?.promptFeedback?.blockReason ? "refused" : "unavailable");
-      const parts = cand.content?.parts || [];
-      const text = parts.filter((p) => p.text && !p.thought).map((p) => p.text).join("");
-      if (text) { all = all ? all + "\n\n" + text : text; opts.onText?.({ text: all, delta: text }); }
-      if (cand.finishReason === "MAX_TOKENS") { truncated = true; break; }
-      if (cand.finishReason === "SAFETY" && !text) throw fail("refused");
-      const calls = parts.filter((p) => p.functionCall);
+      let res = await request();
+      if (!res.ok && res.status === 400 && thinking) {
+        const body = await res.json().catch(() => null);
+        if (!/thinking/i.test(body?.error?.message || "")) throw httpError(400, body);
+        thinking = undefined; res = await request();
+      }
+      if (!res.ok) throw httpError(res.status, await res.json().catch(() => null));
+      const prefix = all ? all + "\n\n" : "";
+      let roundText = ""; let finish = null; let blocked = false;
+      const parts = [];
+      const reader = res.body.pipeThrough(new TextDecoderStream()).getReader();
+      let buf = "";
+      for (;;) {
+        const { value, done } = await reader.read();
+        if (done) break;
+        buf += value.replace(/\r\n/g, "\n");
+        let cut;
+        while ((cut = buf.indexOf("\n\n")) >= 0) {
+          const chunk = buf.slice(0, cut); buf = buf.slice(cut + 2);
+          const data = chunk.split("\n").filter((l) => l.startsWith("data:")).map((l) => l.slice(5).trim()).join("");
+          if (!data) continue;
+          const ev = JSON.parse(data);
+          if (ev.error) throw httpError(ev.error.code || 500, ev);
+          if (ev.promptFeedback?.blockReason) blocked = true;
+          const cand = ev.candidates?.[0];
+          if (!cand) continue;
+          for (const part of cand.content?.parts || []) {
+            parts.push(part);
+            if (part.text && !part.thought) { roundText += part.text; opts.onText?.({ text: prefix + roundText, delta: part.text }); }
+          }
+          if (cand.finishReason) finish = cand.finishReason;
+        }
+      }
+      if (roundText) all = prefix + roundText;
+      if (blocked || (finish === "SAFETY" && !roundText)) throw fail("refused");
+      if (finish === "MAX_TOKENS") { truncated = true; break; }
+      const calls = parts.filter((part) => part.functionCall);
       if (!calls.length) break;
       contents.push({ role: "model", parts });
       const results = await Promise.all(calls.map(async (c) => {
