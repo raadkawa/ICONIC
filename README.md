@@ -1,6 +1,6 @@
 # iCONIC
 
-Personlig driftspartner – nettapp. Åpne: https://raadkawa.github.io/iconic/
+Personlig driftspartner – nettapp. Åpne: https://raadkawa.github.io/ICONIC/
 
 - Snakk med den: trykk på kula, eller si «Hei iCONIC».
 - AI-nøkkel (Google Gemini gratis, eller Claude) legges inn i appen og lagres bare på enheten.
