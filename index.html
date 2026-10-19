@@ -166,8 +166,6 @@
   .hero2 { display: grid; justify-items: center; text-align: center; gap: 6px; padding: 18px 0 18px; overflow-x: clip; }
   .hero2 h1 { margin: 10px 0 0; font-size: clamp(26px, 5vw, 34px); font-weight: 600; letter-spacing: -0.03em; }
   .hero-sub { margin: 0; color: var(--muted); font-size: 15px; max-width: 44ch; }
-  .hero-actions { display: flex; gap: 8px; flex-wrap: wrap; justify-content: center; margin-top: 10px; }
-  .hero-actions .btn.primary { padding: 9px 18px; font-size: 15px; }
   .hero2 .date { color: var(--faint); font-size: 13px; margin-top: 4px; }
   .big-orb { position: relative; width: 132px; height: 132px; border: 0; padding: 0; border-radius: 50%; background: transparent; cursor: pointer; transition: transform 0.3s ease; }
   .big-orb:hover { transform: scale(1.04); }
@@ -521,13 +519,6 @@
       </button>
       <h1 id="greeting">Hei</h1>
       <p class="hero-sub">Spør meg om alt – drift, tall, HR, marked. Trykk på kula og snakk.</p>
-      <div class="hero-actions">
-        <button type="button" id="btn-talk" class="btn primary">🎙 Snakk med iCONIC</button>
-        <button type="button" id="btn-palette" class="cmd-trigger" aria-label="Søk eller gjør noe (⌘K)">
-          <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="6"/><path d="M20 20l-4.5-4.5"/></svg>
-          <span>Søk eller gjør noe</span><kbd>⌘K</kbd>
-        </button>
-      </div>
       <span id="today-date" class="date"></span>
     </section>
     <section class="block" aria-labelledby="att-title">
@@ -2266,7 +2257,6 @@ ${v.note ? `<h2 style="font-size:17px;margin-top:28px">Oppsummering</h2><p>${esc
     } else if (e.key === "Enter") { e.preventDefault(); runPal(palSel); }
   });
   palette.addEventListener("click", (e) => { if (e.target === palette) palette.close(); });
-  $("#btn-palette").addEventListener("click", () => openPalette());
   document.addEventListener("keydown", (e) => {
     if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "k") { e.preventDefault(); openPalette(); return; }
     const typing = /INPUT|TEXTAREA|SELECT/.test(document.activeElement?.tagName) || document.querySelector("dialog[open]");
@@ -2425,7 +2415,6 @@ ${v.note ? `<h2 style="font-size:17px;margin-top:28px">Oppsummering</h2><p>${esc
     renderAttachments();
   });
   $("#big-orb").addEventListener("click", openVoice);
-  $("#btn-talk").addEventListener("click", openVoice);
 
   // ---------- Events ----------
   $("#orb").addEventListener("click", listen);
