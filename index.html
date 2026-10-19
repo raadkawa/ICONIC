@@ -1,0 +1,2412 @@
+<!doctype html>
+<html lang="nb">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' https://cdnjs.cloudflare.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; connect-src https://api.anthropic.com https://generativelanguage.googleapis.com; img-src 'self' data: blob:; object-src 'none'; base-uri 'none'">
+<meta name="referrer" content="no-referrer">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="iCONIC">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="theme-color" content="#09090c">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icon-512.png">
+<link rel="apple-touch-icon" href="icon-180.png">
+<script src="shim.js"></script>
+<title>iCONIC</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&family=Geist+Mono:wght@500&display=swap">
+<style>
+  /* Layout: an app shell — header with tabs, one scrolling view, a floating composer.
+     The signature is the light that runs around the screen edge while iCONIC listens, thinks or speaks. */
+  :root {
+    --bg: #f3f4f7;
+    --surface: #ffffff;
+    --surface-2: #eceef3;
+    --surface-3: #e2e5ec;
+    --line: rgba(17, 19, 28, 0.08);
+    --fg: #101218;
+    --muted: #686d7d;
+    --faint: #9aa0ae;
+    --primary: #101218;
+    --on-primary: #ffffff;
+    --bad: #e2434b;
+    --warn: #d27a22;
+    --good: #23935a;
+    --glow-1: #ff8a4c;
+    --glow-2: #b25cff;
+    --glow-3: #3da7ff;
+    --glow-4: #ff5fa2;
+    --shadow: 0 1px 2px rgba(17, 19, 28, 0.04), 0 10px 30px rgba(17, 19, 28, 0.07);
+    --blur-bg: rgba(243, 244, 247, 0.78);
+    --font: "Geist", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+    --mono: "Geist Mono", ui-monospace, "SF Mono", Menlo, monospace;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #09090c; --surface: #15161b; --surface-2: #1d1e25; --surface-3: #272934;
+      --line: rgba(255, 255, 255, 0.08); --fg: #f3f4f6; --muted: #8d92a1; --faint: #5f6371;
+      --primary: #f3f4f6; --on-primary: #09090c; --bad: #ff6369; --warn: #f0a24e; --good: #4cc38a;
+      --shadow: 0 1px 0 rgba(255, 255, 255, 0.03) inset, 0 10px 30px rgba(0, 0, 0, 0.35);
+      --blur-bg: rgba(9, 9, 12, 0.72);
+      color-scheme: dark;
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #09090c; --surface: #15161b; --surface-2: #1d1e25; --surface-3: #272934;
+    --line: rgba(255, 255, 255, 0.08); --fg: #f3f4f6; --muted: #8d92a1; --faint: #5f6371;
+    --primary: #f3f4f6; --on-primary: #09090c; --bad: #ff6369; --warn: #f0a24e; --good: #4cc38a;
+    --shadow: 0 1px 0 rgba(255, 255, 255, 0.03) inset, 0 10px 30px rgba(0, 0, 0, 0.35);
+    --blur-bg: rgba(9, 9, 12, 0.72);
+    color-scheme: dark;
+  }
+
+  * { box-sizing: border-box; }
+  html, body { height: 100%; }
+  body {
+    margin: 0; background: var(--bg); color: var(--fg); font-family: var(--font);
+    font-size: 16px; line-height: 1.5; overflow: hidden; -webkit-font-smoothing: antialiased;
+    -webkit-tap-highlight-color: transparent;
+  }
+  button, input, select, textarea { font: inherit; color: inherit; }
+  button { cursor: pointer; }
+  :focus-visible { outline: 2px solid var(--glow-3); outline-offset: 2px; border-radius: 10px; }
+
+  /* ---------- Shell ---------- */
+  .app { height: 100%; display: grid; grid-template-rows: auto 1fr auto; grid-template-columns: minmax(0, 1fr); max-width: 760px; margin: 0 auto; }
+  .header {
+    padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px));
+    padding-block: 12px 8px; display: grid; gap: 12px;
+  }
+  .header-row { display: flex; align-items: center; justify-content: space-between; }
+  .wordmark { display: flex; align-items: center; gap: 9px; font-weight: 700; font-size: 15px; letter-spacing: 0.18em; border: 0; background: transparent; padding: 4px 6px 4px 0; border-radius: 12px; }
+  .wordmark:hover .wordmark-dot, .msg.bot .avatar:hover { transform: scale(1.15); }
+  .wordmark-dot, .msg.bot .avatar { transition: transform 0.2s ease; }
+  .msg.bot .avatar { border: 0; padding: 0; cursor: pointer; }
+  .wordmark-dot { width: 18px; height: 18px; border-radius: 50%; background: conic-gradient(from 200deg, var(--glow-1), var(--glow-4), var(--glow-2), var(--glow-3), var(--glow-1)); box-shadow: 0 0 12px rgba(178, 92, 255, 0.45); }
+  .header-actions { display: flex; gap: 4px; }
+  .icon-btn { width: 38px; height: 38px; border-radius: 12px; border: 0; background: transparent; display: grid; place-items: center; color: var(--muted); }
+  .icon-btn:hover { background: var(--surface-2); color: var(--fg); }
+  .icon-btn svg { width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+
+  .tabs { display: grid; grid-template-columns: repeat(5, 1fr); background: var(--surface-2); border-radius: 14px; padding: 4px; gap: 2px; }
+  .tab {
+    position: relative; border: 0; background: transparent; border-radius: 10px; padding: 7px 2px;
+    font-size: 14px; font-weight: 500; color: var(--muted); transition: background 0.2s, color 0.2s;
+    display: flex; align-items: center; justify-content: center; gap: 5px; white-space: nowrap; min-width: 0;
+  }
+  @media (max-width: 480px) { .tab { font-size: 13px; gap: 3px; } .tab .count { min-width: 16px; padding: 0 4px; font-size: 10px; line-height: 16px; } }
+  .tab[aria-selected="true"] { background: var(--surface); color: var(--fg); box-shadow: var(--shadow); }
+  .tab .count {
+    display: inline-block; min-width: 18px; padding: 0 5px; border-radius: 9px; font-size: 11px; line-height: 18px;
+    background: var(--surface-3); color: var(--fg); font-variant-numeric: tabular-nums;
+  }
+
+  .view {
+    overflow-y: auto; min-height: 0; scroll-behavior: smooth;
+    padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px));
+    padding-block: 8px 24px;
+  }
+  .notice { margin: 0 0 12px; padding: 10px 14px; border-radius: 14px; background: var(--surface-2); color: var(--muted); font-size: 14px; }
+
+  /* ---------- Home ---------- */
+  .hero { display: grid; justify-items: start; gap: 2px; padding: 10px 2px 18px; }
+  .hero h1 { margin: 0; font-size: clamp(28px, 7vw, 38px); line-height: 1.1; font-weight: 600; letter-spacing: -0.03em; text-wrap: balance; }
+  .hero .date { color: var(--muted); font-size: 15px; }
+  .hero .sub { color: var(--muted); font-size: 15px; margin-top: 8px; max-width: 46ch; }
+
+  .glance { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+  .card {
+    text-align: left; border: 1px solid var(--line); background: var(--surface); border-radius: 18px; padding: 14px;
+    box-shadow: var(--shadow); display: grid; gap: 4px; min-width: 0; transition: transform 0.15s ease;
+  }
+  .card:active { transform: scale(0.98); }
+  .card .label { font-size: 12px; font-weight: 500; letter-spacing: 0.06em; text-transform: uppercase; color: var(--muted); display: flex; align-items: center; gap: 6px; }
+  .card .label i { width: 7px; height: 7px; border-radius: 50%; background: var(--faint); }
+  .card .label i.bad { background: var(--bad); } .card .label i.warn { background: var(--warn); } .card .label i.good { background: var(--good); }
+  .card .value { font-size: 26px; font-weight: 600; letter-spacing: -0.02em; font-variant-numeric: tabular-nums; line-height: 1.15; }
+  .card .value.small { font-size: 17px; letter-spacing: -0.01em; }
+  .card .detail { font-size: 13px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+  .chips { display: flex; gap: 6px; overflow-x: auto; padding: 12px 0 2px; scrollbar-width: none; }
+  .chips::-webkit-scrollbar { display: none; }
+  .chip { flex: none; border: 1px solid var(--line); background: var(--surface); border-radius: 999px; padding: 6px 12px; font-size: 13px; white-space: nowrap; }
+  .chip:hover { background: var(--surface-2); }
+
+  .thread { display: grid; gap: 18px; padding-top: 18px; }
+  .thread-head { display: flex; justify-content: space-between; align-items: center; color: var(--muted); font-size: 13px; }
+  .link-btn { border: 0; background: none; color: var(--muted); font-size: 13px; padding: 4px 0; text-decoration: underline; text-underline-offset: 3px; }
+  .msg { min-width: 0; overflow-wrap: anywhere; white-space: pre-wrap; animation: rise 0.3s ease-out; }
+  .msg.user { justify-self: end; max-width: 82%; background: var(--surface-2); padding: 10px 15px; border-radius: 20px 20px 6px 20px; }
+  .msg.bot { display: grid; grid-template-columns: 22px 1fr; gap: 10px; font-size: 17px; line-height: 1.55; }
+  .msg.bot .avatar { width: 22px; height: 22px; margin-top: 3px; border-radius: 50%; background: conic-gradient(from 200deg, var(--glow-1), var(--glow-4), var(--glow-2), var(--glow-3), var(--glow-1)); }
+  .msg.bot .body { min-width: 0; }
+  .msg.bot.thinking .text { color: var(--muted); }
+  .msg.bot.thinking .avatar { animation: spin 1.4s linear infinite; }
+  .msg.bot.error .text { color: var(--bad); }
+  .tags { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+  .tag { font-size: 12px; padding: 3px 9px; border-radius: 999px; background: var(--surface-2); color: var(--muted); }
+  @keyframes rise { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  .draft { margin-top: 10px; padding: 14px; border-radius: 16px; background: var(--surface); border: 1px solid var(--line); box-shadow: var(--shadow); font-size: 15px; white-space: pre-wrap; }
+  .draft-head { font-size: 12px; color: var(--muted); letter-spacing: 0.04em; text-transform: uppercase; margin-bottom: 6px; }
+  .draft-subject { font-weight: 600; margin-bottom: 4px; }
+  .draft-actions { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 12px; }
+  .file-preview { color: var(--muted); font-size: 14px; white-space: normal; overflow-wrap: anywhere; }
+  .row > .btn { flex: none; align-self: center; }
+
+  .btn { border: 1px solid var(--line); background: var(--surface-2); border-radius: 999px; padding: 7px 14px; font-size: 14px; font-weight: 500; }
+  .btn:hover { background: var(--surface-3); }
+  .btn.primary { background: var(--primary); color: var(--on-primary); border-color: transparent; }
+
+  /* ---------- Hero orb (the AI is the front door) ---------- */
+  .hero2 { display: grid; justify-items: center; text-align: center; gap: 6px; padding: 18px 0 18px; overflow-x: clip; }
+  .hero2 h1 { margin: 10px 0 0; font-size: clamp(26px, 5vw, 34px); font-weight: 600; letter-spacing: -0.03em; }
+  .hero-sub { margin: 0; color: var(--muted); font-size: 15px; max-width: 44ch; }
+  .hero-actions { display: flex; gap: 8px; flex-wrap: wrap; justify-content: center; margin-top: 10px; }
+  .hero-actions .btn.primary { padding: 9px 18px; font-size: 15px; }
+  .hero2 .date { color: var(--faint); font-size: 13px; margin-top: 4px; }
+  .big-orb { position: relative; width: 132px; height: 132px; border: 0; padding: 0; border-radius: 50%; background: transparent; cursor: pointer; transition: transform 0.3s ease; }
+  .big-orb:hover { transform: scale(1.04); }
+  .big-orb:active { transform: scale(0.96); }
+  .big-orb span { position: absolute; border-radius: 50%; pointer-events: none; }
+  .big-orb .bo-glow { inset: -18%; background: conic-gradient(from 0deg, var(--glow-1), var(--glow-4), var(--glow-2), var(--glow-3), var(--glow-1)); filter: blur(28px); opacity: 0.55; animation: spin 10s linear infinite; }
+  .big-orb .bo-ring { inset: 0; background: conic-gradient(from 90deg, var(--glow-1), var(--glow-4), var(--glow-2), var(--glow-3), var(--glow-1)); animation: spin 7s linear infinite reverse; }
+  .big-orb .bo-core { inset: 6%; background: radial-gradient(circle at 35% 30%, rgba(255,255,255,0.95), rgba(255,255,255,0.35) 38%, rgba(255,255,255,0) 70%), conic-gradient(from 200deg, var(--glow-3), var(--glow-2), var(--glow-4), var(--glow-1), var(--glow-3)); animation: spin 12s linear infinite; }
+  .big-orb .bo-shine { inset: 22% 30% 52% 24%; background: rgba(255,255,255,0.55); filter: blur(8px); }
+  body[data-state="idle"] .big-orb { animation: idlebreath 4s ease-in-out infinite; }
+  body[data-state="listening"] .big-orb { animation: breathe 1.4s ease-in-out infinite; }
+  body[data-state="listening"] .big-orb .bo-glow { opacity: 0.9; }
+  body[data-state="thinking"] .big-orb .bo-ring, body[data-state="thinking"] .big-orb .bo-core { animation-duration: 1.2s; }
+  body[data-state="thinking"] .big-orb .bo-glow { opacity: 0.85; animation-duration: 2s; }
+  body[data-state="speaking"] .big-orb { animation: talk 0.45s ease-in-out infinite alternate; }
+  body[data-state="speaking"] .big-orb .bo-glow { opacity: 1; }
+  @keyframes idlebreath { 50% { transform: scale(1.03); } }
+  @keyframes talk { from { transform: scale(0.97); } to { transform: scale(1.07); } }
+  @media (min-width: 960px) { .big-orb { width: 156px; height: 156px; } }
+
+  /* ---------- Voice mode (Siri-style full screen) ---------- */
+  .voice { border: 0; padding: 0; margin: 0; width: 100%; height: 100%; max-width: none; max-height: none; background: var(--bg); color: var(--fg); }
+  .voice::backdrop { background: var(--bg); }
+  .voice-inner { height: 100%; display: grid; grid-template-rows: auto 1fr auto; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); padding-top: calc(env(safe-area-inset-top, 0px) + 12px); padding-bottom: calc(env(safe-area-inset-bottom, 0px) + 14px); max-width: 860px; margin: 0 auto; }
+  .voice-top { display: flex; justify-content: space-between; align-items: center; }
+  .voice-brand { display: flex; align-items: center; gap: 9px; font-weight: 700; letter-spacing: 0.18em; font-size: 14px; }
+  .voice-stage { display: grid; justify-items: center; align-content: center; gap: 14px; text-align: center; min-height: 0; overflow-y: auto; overflow-x: hidden; padding: 10px 0; }
+  .voice { overflow: hidden; }
+  .big-orb.huge { width: min(46vw, 220px); height: min(46vw, 220px); }
+  .voice-status { font-size: 15px; color: var(--muted); min-height: 1.4em; }
+  .voice-heard { font-size: 16px; color: var(--muted); max-width: 52ch; font-style: italic; }
+  .voice-heard:empty { display: none; }
+  .voice-answer { font-size: clamp(19px, 3.2vw, 24px); line-height: 1.45; max-width: 46ch; white-space: pre-wrap; letter-spacing: -0.01em; }
+  .voice-answer:empty { display: none; }
+  .voice-bottom { display: grid; gap: 8px; }
+  .voice-hint { text-align: center; font-size: 14px; color: var(--muted); }
+  .voice-hint b { color: var(--fg); }
+  .voice-composer { width: 100%; }
+
+  /* ---------- Attachments ---------- */
+  .attach-btn { width: 36px; height: 36px; flex: none; border: 0; border-radius: 50%; background: transparent; color: var(--muted); display: grid; place-items: center; align-self: center; }
+  .attach-btn:hover { background: var(--surface-2); color: var(--fg); }
+  .attach-btn svg { width: 19px; height: 19px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+  .attachments { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 8px; }
+  .attachments[hidden] { display: none; }
+  .att { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; padding: 4px 6px 4px 10px; border-radius: 999px; background: var(--surface); border: 1px solid var(--line); max-width: 260px; }
+  .att span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .att button { border: 0; background: var(--surface-2); border-radius: 50%; width: 20px; height: 20px; font-size: 12px; line-height: 1; }
+
+  /* ---------- Compact home ---------- */
+  .topline { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; padding: 2px 0 12px; }
+  .hello { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; min-width: 0; }
+  .hello h1 { margin: 0; font-size: 22px; font-weight: 600; letter-spacing: -0.02em; }
+  .hello .date { color: var(--muted); font-size: 14px; }
+  .cmd-trigger { display: inline-flex; align-items: center; gap: 8px; border: 1px solid var(--line); background: var(--surface); color: var(--muted); border-radius: 12px; padding: 7px 8px 7px 10px; font-size: 14px; box-shadow: var(--shadow); min-width: 0; }
+  .cmd-trigger:hover { color: var(--fg); }
+  .cmd-trigger svg, .pal-input svg { width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; flex: none; }
+  kbd { font-family: var(--mono); font-size: 11px; padding: 1px 6px; border-radius: 6px; background: var(--surface-2); border: 1px solid var(--line); color: var(--muted); }
+  .block { margin-top: 12px; }
+  .block-head { display: flex; align-items: center; justify-content: space-between; margin: 0 2px 6px; }
+  .block-head h2 { margin: 0; font-size: 13px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: var(--muted); }
+  .pill-count { font-size: 12px; font-weight: 600; padding: 1px 8px; border-radius: 999px; background: color-mix(in srgb, var(--bad) 14%, transparent); color: var(--bad); font-variant-numeric: tabular-nums; }
+  .pill-count:empty { display: none; }
+  .rows { background: var(--surface); border: 1px solid var(--line); border-radius: 16px; box-shadow: var(--shadow); overflow: hidden; }
+  .r { display: flex; align-items: center; gap: 10px; padding: 9px 12px; border-top: 1px solid var(--line); min-width: 0; font-size: 15px; }
+  .r:first-child { border-top: 0; }
+  .r .ic { width: 22px; height: 22px; flex: none; border-radius: 7px; display: grid; place-items: center; font-size: 12px; font-weight: 700; }
+  .r .ic.bad { color: var(--bad); background: color-mix(in srgb, var(--bad) 14%, transparent); }
+  .r .ic.warn { color: var(--warn); background: color-mix(in srgb, var(--warn) 16%, transparent); }
+  .r .ic.info { color: var(--muted); background: var(--surface-2); }
+  .r .ic.good { color: var(--good); background: color-mix(in srgb, var(--good) 14%, transparent); }
+  .r .t { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .r .m { color: var(--muted); font-size: 13px; white-space: nowrap; font-variant-numeric: tabular-nums; }
+  .r .tm { font-family: var(--mono); font-size: 12.5px; color: var(--muted); min-width: 42px; }
+  .r .act { flex: none; border: 1px solid var(--line); background: var(--surface-2); border-radius: 8px; padding: 3px 9px; font-size: 13px; }
+  .r .act:hover { background: var(--surface-3); }
+  .r.click { cursor: pointer; }
+  .r.click:hover { background: var(--surface-2); }
+  .r.ok { color: var(--muted); }
+
+  /* ---------- Store visits & store sheet ---------- */
+  .visit-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; margin-bottom: 10px; }
+  .muted-s { color: var(--muted); font-size: 13px; }
+  .sheet.wide { max-height: calc(100% - 40px); overflow-y: auto; }
+  .score-badge { font-size: 22px; font-weight: 700; padding: 4px 12px; border-radius: 12px; font-variant-numeric: tabular-nums; white-space: nowrap; flex: none; }
+  .score-badge.good { color: var(--good); background: color-mix(in srgb, var(--good) 14%, transparent); }
+  .score-badge.warn { color: var(--warn); background: color-mix(in srgb, var(--warn) 16%, transparent); }
+  .score-badge.bad { color: var(--bad); background: color-mix(in srgb, var(--bad) 14%, transparent); }
+  .visit-items { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
+  .vi { border: 1px solid var(--line); border-radius: 14px; padding: 10px 12px; display: grid; gap: 8px; }
+  .vi-top { display: flex; align-items: center; gap: 10px; justify-content: space-between; }
+  .vi-text { min-width: 0; font-size: 15px; }
+  .vi-seg { display: inline-flex; gap: 4px; flex: none; }
+  .vi-seg button { width: 40px; height: 34px; border-radius: 10px; border: 1px solid var(--line); background: var(--surface-2); font-size: 15px; font-weight: 600; color: var(--muted); }
+  .vi-seg button[aria-pressed="true"][data-r="ok"] { background: var(--good); color: #fff; border-color: transparent; }
+  .vi-seg button[aria-pressed="true"][data-r="avvik"] { background: var(--bad); color: #fff; border-color: transparent; }
+  .vi-seg button[aria-pressed="true"][data-r="na"] { background: var(--surface-3); color: var(--fg); }
+  .vi input { width: 100%; padding: 8px 10px; border-radius: 10px; border: 1px solid var(--line); background: var(--surface-2); font-size: 15px; color: var(--fg); }
+  .visit-note { display: grid; gap: 4px; font-size: 13px; color: var(--muted); margin-top: 10px; }
+  .ss-kpis { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; }
+  @media (max-width: 520px) { .ss-kpis { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+  .ss-kpi { background: var(--surface-2); border-radius: 12px; padding: 10px; }
+  .ss-kpi b { display: block; font-size: 18px; font-variant-numeric: tabular-nums; }
+  .ss-kpi span { font-size: 11px; letter-spacing: 0.06em; text-transform: uppercase; color: var(--muted); }
+  .ss-h { margin: 16px 0 6px; font-size: 12px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); font-weight: 600; }
+  .sheet-actions.ss-actions { justify-content: flex-start; flex-wrap: wrap; }
+
+  /* ---------- Command palette ---------- */
+  .palette { border: 0; padding: 0; background: transparent; width: min(640px, calc(100% - 24px)); margin-top: 12vh; }
+  .palette::backdrop { background: rgba(0, 0, 0, 0.35); backdrop-filter: blur(4px); }
+  .pal-box { background: var(--surface); border: 1px solid var(--line); border-radius: 18px; box-shadow: 0 24px 60px rgba(0,0,0,0.25); overflow: hidden; color: var(--fg); }
+  .pal-input { display: flex; align-items: center; gap: 10px; padding: 14px 16px; border-bottom: 1px solid var(--line); color: var(--muted); }
+  .pal-input input { flex: 1; min-width: 0; border: 0; outline: 0; background: transparent; font-size: 17px; color: var(--fg); }
+  .pal-list { list-style: none; margin: 0; padding: 6px; max-height: min(52vh, 420px); overflow-y: auto; }
+  .pal-list li { display: flex; align-items: center; gap: 10px; padding: 9px 10px; border-radius: 10px; cursor: pointer; font-size: 15px; }
+  .pal-list li[aria-selected="true"] { background: var(--surface-2); }
+  .pal-list .pi { width: 26px; height: 26px; flex: none; display: grid; place-items: center; border-radius: 8px; background: var(--surface-2); font-size: 14px; }
+  .pal-list li[aria-selected="true"] .pi { background: var(--surface); }
+  .pal-list .pl { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .pal-list .ph { color: var(--muted); font-size: 12px; }
+  .pal-list .sec { padding: 8px 10px 4px; font-size: 11px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); cursor: default; }
+  .pal-foot { display: flex; gap: 14px; flex-wrap: wrap; padding: 8px 14px; border-top: 1px solid var(--line); font-size: 12px; color: var(--muted); }
+  .pal-foot b { color: var(--fg); font-weight: 500; }
+  @media (max-width: 520px) {
+    .topline { flex-wrap: nowrap; }
+    .hello { flex-wrap: nowrap; overflow: hidden; }
+    .hello .date { display: none; }
+    .cmd-trigger span, .cmd-trigger kbd { display: none; }
+    .cmd-trigger { padding: 9px; }
+    .palette { margin-top: 6vh; }
+    .pal-foot span:last-child { display: none; }
+  }
+
+  /* ---------- Composer ---------- */
+  .dock {
+    padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px));
+    padding-block: 6px 12px; background: linear-gradient(to top, var(--bg) 60%, transparent);
+  }
+  .dock[hidden] { display: none; }
+  .status { min-height: 20px; font-size: 13px; color: var(--muted); text-align: center; margin-bottom: 6px; }
+  .composer {
+    display: flex; align-items: flex-end; gap: 8px; padding: 6px; border-radius: 26px;
+    background: var(--surface); border: 1px solid var(--line); box-shadow: var(--shadow);
+  }
+  .composer textarea {
+    flex: 1; min-width: 0; border: 0; outline: 0; background: transparent; resize: none;
+    font-size: 16px; line-height: 1.4; padding: 9px 4px; max-height: 140px;
+  }
+  .composer textarea::placeholder { color: var(--faint); }
+  .orb-btn { position: relative; width: 40px; height: 40px; flex: none; border: 0; border-radius: 50%; padding: 0; background: transparent; }
+  .orb-btn span { position: absolute; inset: 0; border-radius: 50%; pointer-events: none; }
+  .orb-btn .o1 { background: conic-gradient(from 0deg, var(--glow-1), var(--glow-4), var(--glow-2), var(--glow-3), var(--glow-1)); animation: spin 8s linear infinite; filter: saturate(1.1); }
+  .orb-btn .o2 { inset: 3px; background: radial-gradient(circle at 35% 30%, rgba(255, 255, 255, 0.95), rgba(255, 255, 255, 0.25) 45%, transparent 70%); mix-blend-mode: soft-light; }
+  .orb-btn .o3 { inset: 0; box-shadow: 0 0 18px rgba(178, 92, 255, 0.45); }
+  .send { width: 40px; height: 40px; flex: none; border: 0; border-radius: 50%; background: var(--primary); color: var(--on-primary); display: grid; place-items: center; transition: opacity 0.2s; }
+  .send:disabled { opacity: 0.3; cursor: default; }
+  .send svg { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 2.2; stroke-linecap: round; stroke-linejoin: round; }
+
+  .dictate {
+    display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 10px;
+    padding: 14px 16px; border-radius: 20px; background: var(--surface); border: 1px solid var(--line); box-shadow: var(--shadow);
+    animation: rise 0.25s ease-out;
+  }
+  .dictate[hidden] { display: none; }
+  .dictate-main { display: flex; align-items: center; gap: 14px; min-width: 0; }
+  .dictate-mic { width: 44px; height: 44px; flex: none; border-radius: 50%; display: grid; place-items: center; color: #fff;
+    background: conic-gradient(from 200deg, var(--glow-1), var(--glow-4), var(--glow-2), var(--glow-3), var(--glow-1)); animation: breathe 1.4s ease-in-out infinite; }
+  .dictate-mic svg { width: 22px; height: 22px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; }
+  .dictate-key { font-size: 18px; font-weight: 600; letter-spacing: -0.01em; }
+  .dictate-help { font-size: 13px; color: var(--muted); margin-top: 2px; }
+  @keyframes breathe { 50% { transform: scale(1.08); } }
+
+  /* ---------- Edge glow (listening / thinking / speaking) ---------- */
+  @property --angle { syntax: "<angle>"; initial-value: 0deg; inherits: false; }
+  .edge { position: fixed; inset: 0; pointer-events: none; z-index: 50; opacity: 0; transition: opacity 0.5s ease; }
+  .edge::before, .edge::after {
+    content: ""; position: absolute; inset: 0; border-radius: 0;
+    background: conic-gradient(from var(--angle), var(--glow-1), var(--glow-4), var(--glow-2), var(--glow-3), var(--glow-1));
+    padding: 3px;
+    -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0); -webkit-mask-composite: xor;
+    mask: linear-gradient(#000 0 0) content-box exclude, linear-gradient(#000 0 0);
+    animation: rotate 4s linear infinite;
+  }
+  .edge::after { padding: 10px; filter: blur(16px); opacity: 0.7; }
+  @keyframes rotate { to { --angle: 360deg; } }
+  body[data-state="listening"] .edge, body[data-state="thinking"] .edge, body[data-state="speaking"] .edge { opacity: 1; }
+  body[data-state="thinking"] .edge::before, body[data-state="thinking"] .edge::after { animation-duration: 1.6s; }
+  body[data-state="speaking"] .edge::after { animation: rotate 3s linear infinite, pulse 0.9s ease-in-out infinite alternate; }
+  @keyframes pulse { from { opacity: 0.45; } to { opacity: 0.95; } }
+
+  /* ---------- Lists (tasks / calendar / notes) ---------- */
+  .section-title { margin: 22px 2px 8px; font-size: 13px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: var(--muted); display: flex; justify-content: space-between; }
+  .section-title.bad { color: var(--bad); }
+  .group { background: var(--surface); border: 1px solid var(--line); border-radius: 18px; box-shadow: var(--shadow); overflow: hidden; }
+  .row { display: flex; align-items: flex-start; gap: 12px; padding: 12px 14px; border-top: 1px solid var(--line); min-width: 0; }
+  .row:first-child { border-top: 0; }
+  .row .main { flex: 1; min-width: 0; overflow-wrap: anywhere; }
+  .row .title { font-weight: 500; }
+  .row .meta { font-size: 13px; color: var(--muted); margin-top: 1px; }
+  .row .time { font-family: var(--mono); font-size: 13px; color: var(--muted); min-width: 44px; padding-top: 2px; font-variant-numeric: tabular-nums; }
+  .row .del { opacity: 0.55; width: 30px; height: 30px; border-radius: 9px; }
+  .row:hover .del { opacity: 1; }
+  .check {
+    appearance: none; -webkit-appearance: none; width: 22px; height: 22px; flex: none; margin: 1px 0 0;
+    border-radius: 50%; border: 1.6px solid var(--faint); display: grid; place-items: center; cursor: pointer; transition: all 0.15s;
+  }
+  .check:checked { background: var(--primary); border-color: var(--primary); }
+  .check:checked::after { content: ""; width: 9px; height: 5px; border-left: 2px solid var(--on-primary); border-bottom: 2px solid var(--on-primary); transform: rotate(-45deg) translate(1px, -1px); }
+  .pill { display: inline-block; font-size: 11px; font-weight: 600; letter-spacing: 0.03em; padding: 1px 7px; border-radius: 999px; margin-left: 6px; vertical-align: 2px; }
+  .pill.kritisk { background: color-mix(in srgb, var(--bad) 18%, transparent); color: var(--bad); }
+  .pill.høy { background: color-mix(in srgb, var(--warn) 20%, transparent); color: var(--warn); }
+  .empty { padding: 28px 18px; text-align: center; color: var(--muted); font-size: 15px; }
+  .empty strong { display: block; color: var(--fg); font-weight: 600; margin-bottom: 4px; }
+
+  .quick-add { display: flex; gap: 8px; margin-top: 6px; }
+  .quick-add input {
+    flex: 1; min-width: 0; border: 1px solid var(--line); background: var(--surface); border-radius: 14px;
+    padding: 11px 14px; font-size: 16px; box-shadow: var(--shadow); outline: 0;
+  }
+  .quick-add input:focus { border-color: var(--faint); }
+
+  /* ---------- Numbers ---------- */
+  .toolbar { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; justify-content: space-between; }
+  .toolbar .group-l, .toolbar .group-r { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+  .seg.small { display: inline-grid; grid-template-columns: auto auto; }
+  .seg.small button { padding: 6px 12px; font-size: 14px; }
+  .period { display: inline-flex; align-items: center; gap: 2px; background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 2px; }
+  .period button { border: 0; background: transparent; width: 32px; height: 32px; border-radius: 9px; font-size: 18px; color: var(--muted); }
+  .period button:hover { background: var(--surface-2); color: var(--fg); }
+  .period span { min-width: 120px; text-align: center; font-weight: 600; font-size: 14px; }
+  .kpis { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; margin-top: 14px; }
+  @media (min-width: 640px) { .kpis { grid-template-columns: repeat(4, minmax(0, 1fr)); } }
+  .kpi { background: var(--surface); border: 1px solid var(--line); border-radius: 18px; padding: 14px; box-shadow: var(--shadow); display: grid; gap: 4px; min-width: 0; }
+  .kpi .label { font-size: 12px; font-weight: 500; letter-spacing: 0.06em; text-transform: uppercase; color: var(--muted); }
+  .kpi .value { font-size: 24px; font-weight: 600; letter-spacing: -0.02em; font-variant-numeric: tabular-nums; line-height: 1.2; }
+  .kpi .detail { font-size: 13px; color: var(--muted); }
+  .status-chip { display: inline-flex; align-items: center; gap: 4px; font-size: 12px; font-weight: 600; padding: 2px 8px; border-radius: 999px; width: fit-content; }
+  .status-chip.good { color: var(--good); background: color-mix(in srgb, var(--good) 14%, transparent); }
+  .status-chip.warn { color: var(--warn); background: color-mix(in srgb, var(--warn) 16%, transparent); }
+  .status-chip.bad { color: var(--bad); background: color-mix(in srgb, var(--bad) 14%, transparent); }
+  .status-chip.none { color: var(--muted); background: var(--surface-2); }
+  .panel { background: var(--surface); border: 1px solid var(--line); border-radius: 18px; box-shadow: var(--shadow); padding: 16px; margin-top: 14px; min-width: 0; }
+  .panel h3 { margin: 0 0 2px; font-size: 15px; font-weight: 600; }
+  .panel .sub { margin: 0 0 10px; font-size: 13px; color: var(--muted); }
+  .chart { position: relative; }
+  .chart svg { display: block; width: 100%; height: 190px; overflow: visible; }
+  .chart .tip { position: absolute; pointer-events: none; background: var(--fg); color: var(--bg); font-size: 12px; padding: 6px 9px; border-radius: 8px; white-space: nowrap; transform: translate(-50%, -110%); font-variant-numeric: tabular-nums; }
+  .table-wrap { overflow-x: auto; margin: 0 -16px; padding: 0 16px; }
+  table.num { width: 100%; border-collapse: collapse; font-size: 14px; font-variant-numeric: tabular-nums; min-width: 620px; }
+  table.num th { text-align: right; font-weight: 500; font-size: 12px; letter-spacing: 0.04em; text-transform: uppercase; color: var(--muted); padding: 6px 8px; border-bottom: 1px solid var(--line); white-space: nowrap; }
+  table.num td { text-align: right; padding: 10px 8px; border-bottom: 1px solid var(--line); white-space: nowrap; }
+  table.num th:first-child, table.num td:first-child { text-align: left; }
+  table.num tr.store { cursor: pointer; }
+  table.num tr.store:hover td { background: var(--surface-2); }
+  table.num tr.total td { font-weight: 600; border-bottom: 0; }
+  .cell-flag { margin-left: 4px; font-size: 11px; }
+  .cell-flag.good { color: var(--good); } .cell-flag.warn { color: var(--warn); } .cell-flag.bad { color: var(--bad); }
+  .analysis { white-space: pre-wrap; line-height: 1.6; font-size: 15px; }
+  .analysis.muted { color: var(--muted); }
+  .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  .form-grid .full { grid-column: 1 / -1; }
+  .form-grid label { display: grid; gap: 4px; font-size: 13px; color: var(--muted); }
+  .form-grid input, .form-grid select, .sheet textarea {
+    width: 100%; padding: 10px 12px; border-radius: 12px; border: 1px solid var(--line); background: var(--surface-2); font-size: 16px; color: var(--fg);
+  }
+  .sheet textarea { min-height: 130px; resize: vertical; font-family: var(--mono); font-size: 13px; }
+  .sheet.wide { width: min(640px, calc(100% - 32px)); }
+  .import-status { font-size: 14px; color: var(--muted); min-height: 1.4em; margin: 8px 0 0; }
+  .preview { max-height: 260px; overflow: auto; margin-top: 10px; }
+
+  /* ---------- Sheet ---------- */
+  .sheet { border: 1px solid var(--line); border-radius: 24px; background: var(--surface); color: var(--fg); width: min(460px, calc(100% - 32px)); padding: 22px; box-shadow: var(--shadow); }
+  .sheet::backdrop { background: rgba(0, 0, 0, 0.4); backdrop-filter: blur(6px); }
+  .sheet h2 { margin: 0 0 6px; font-size: 22px; font-weight: 600; letter-spacing: -0.02em; }
+  .field { display: grid; gap: 6px; padding: 12px 0; border-bottom: 1px solid var(--line); }
+  .field.inline { display: flex; justify-content: space-between; align-items: center; gap: 16px; }
+  .field small { color: var(--muted); font-size: 13px; }
+  .field label, .field .lbl { font-weight: 500; }
+  .field input[type="text"], .field select {
+    width: 100%; padding: 10px 12px; border-radius: 12px; border: 1px solid var(--line); background: var(--surface-2); font-size: 16px;
+  }
+  .switch { appearance: none; -webkit-appearance: none; width: 46px; height: 28px; border-radius: 14px; background: var(--surface-3); position: relative; flex: none; cursor: pointer; transition: background 0.2s; }
+  .switch::after { content: ""; position: absolute; top: 3px; left: 3px; width: 22px; height: 22px; border-radius: 50%; background: #fff; box-shadow: 0 1px 3px rgba(0,0,0,0.25); transition: transform 0.2s; }
+  .switch:checked { background: var(--good); }
+  .switch:checked::after { transform: translateX(18px); }
+  .seg { display: grid; grid-template-columns: repeat(auto-fit, minmax(0, 1fr)); background: var(--surface-2); border-radius: 12px; padding: 3px; gap: 2px; }
+  .seg button { border: 0; background: transparent; border-radius: 9px; padding: 7px; font-weight: 500; color: var(--muted); }
+  .seg button[aria-pressed="true"] { background: var(--surface); color: var(--fg); box-shadow: var(--shadow); }
+  .sheet-actions { display: flex; justify-content: space-between; gap: 8px; margin-top: 18px; }
+
+  @media (min-width: 640px) { .glance { grid-template-columns: repeat(4, minmax(0, 1fr)); } }
+
+  /* ---------- Wide screens: sidebar + full-width content ---------- */
+  @media (min-width: 960px) {
+    .app { max-width: none; grid-template-columns: 264px minmax(0, 1fr); grid-template-rows: minmax(0, 1fr) auto; }
+    .header {
+      grid-column: 1; grid-row: 1 / 3; align-content: start; gap: 22px;
+      padding-block: 20px; padding-left: max(18px, env(safe-area-inset-left, 0px)); padding-right: 18px;
+      border-right: 1px solid var(--line); background: var(--surface);
+    }
+    .tabs { grid-template-columns: 1fr; background: transparent; padding: 0; gap: 4px; }
+    .tab { justify-content: space-between; padding: 10px 12px; font-size: 15px; }
+    .tab[aria-selected="true"] { background: var(--surface-2); box-shadow: none; }
+    .view, .dock {
+      grid-column: 2;
+      padding-left: max(40px, calc((100% - 1040px) / 2));
+      padding-right: max(40px, calc((100% - 1040px) / 2), env(safe-area-inset-right, 0px));
+    }
+    .view { padding-block: 20px 28px; }
+    .hello h1 { font-size: 26px; }
+    .msg.user { max-width: 70%; }
+    .chips { flex-wrap: wrap; overflow: visible; }
+  }
+
+  @media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation-duration: 0.001s !important; animation-iteration-count: 1 !important; transition: none !important; } }
+</style>
+</head>
+<body>
+
+<div class="edge" aria-hidden="true"></div>
+
+<div class="app">
+  <header class="header">
+    <div class="header-row">
+      <button type="button" id="wordmark" class="wordmark" aria-label="Snakk med iCONIC" title="Trykk for å snakke"><span class="wordmark-dot" aria-hidden="true"></span>iCONIC</button>
+      <div class="header-actions">
+      <button id="btn-fullscreen" class="icon-btn" aria-label="Fullskjerm" title="Fullskjerm" hidden>
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path id="fs-icon" d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/></svg>
+      </button>
+      <button id="btn-settings" class="icon-btn" aria-label="Innstillinger">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h10M18 7h2M4 17h2M10 17h10"/><circle cx="16" cy="7" r="2"/><circle cx="8" cy="17" r="2"/></svg>
+      </button>
+      </div>
+    </div>
+    <nav class="tabs" role="tablist" aria-label="Visninger">
+      <button class="tab" role="tab" id="tab-home" data-view="home" aria-selected="true">I dag</button>
+      <button class="tab" role="tab" id="tab-tasks" data-view="tasks" aria-selected="false">Oppgaver<span id="count-tasks" class="count" hidden></span></button>
+      <button class="tab" role="tab" id="tab-numbers" data-view="numbers" aria-selected="false">Tall</button>
+      <button class="tab" role="tab" id="tab-calendar" data-view="calendar" aria-selected="false">Kalender</button>
+      <button class="tab" role="tab" id="tab-notes" data-view="notes" aria-selected="false">Notater</button>
+    </nav>
+  </header>
+
+  <main id="view-home" class="view" data-view="home">
+    <p id="notice" class="notice" hidden></p>
+    <section class="hero2">
+      <button type="button" id="big-orb" class="big-orb" aria-label="Snakk med iCONIC">
+        <span class="bo-glow"></span><span class="bo-ring"></span><span class="bo-core"></span><span class="bo-shine"></span>
+      </button>
+      <h1 id="greeting">Hei</h1>
+      <p class="hero-sub">Spør meg om alt – drift, tall, HR, marked. Trykk på kula og snakk.</p>
+      <div class="hero-actions">
+        <button type="button" id="btn-talk" class="btn primary">🎙 Snakk med iCONIC</button>
+        <button type="button" id="btn-palette" class="cmd-trigger" aria-label="Søk eller gjør noe (⌘K)">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="6"/><path d="M20 20l-4.5-4.5"/></svg>
+          <span>Søk eller gjør noe</span><kbd>⌘K</kbd>
+        </button>
+      </div>
+      <span id="today-date" class="date"></span>
+    </section>
+    <section class="block" aria-labelledby="att-title">
+      <div class="block-head"><h2 id="att-title">Krever oppmerksomhet</h2><span id="att-count" class="pill-count"></span></div>
+      <div id="attention" class="rows"></div>
+    </section>
+    <section class="block" aria-labelledby="agenda-title">
+      <div class="block-head"><h2 id="agenda-title">I dag</h2><button type="button" class="link-btn" data-go="calendar">Kalender →</button></div>
+      <div id="agenda" class="rows"></div>
+    </section>
+    <div id="chips" class="chips">
+      <button class="chip" data-cmd="briefing">Dagens briefing</button>
+      <button class="chip" data-cmd="visit">Start butikkbesøk</button>
+      <button class="chip" data-cmd="report">Ukesrapport</button>
+      <button class="chip" data-cmd="import">Importer P&amp;L</button>
+      <button class="chip" data-ask="Skriv en melding for meg">Skriv en melding</button>
+      <button class="chip" data-ask="Jeg har et problem jeg vil løse">Løs et problem</button>
+    </div>
+    <section id="thread" class="thread" aria-live="polite"></section>
+  </main>
+
+  <main id="view-tasks" class="view" data-view="tasks" hidden>
+    <form id="task-form" class="quick-add" autocomplete="off">
+      <input id="task-input" type="text" placeholder="Ny oppgave – trykk Enter" aria-label="Ny oppgave">
+      <button class="btn primary" type="submit">Legg til</button>
+    </form>
+    <div id="tasks-list"></div>
+  </main>
+
+  <main id="view-calendar" class="view" data-view="calendar" hidden>
+    <div id="calendar-list"></div>
+  </main>
+
+  <main id="view-numbers" class="view" data-view="numbers" hidden>
+    <div class="toolbar">
+      <div class="group-l">
+        <div class="seg small" role="group" aria-label="Periode">
+          <button type="button" id="ptype-week" data-ptype="week">Uke</button>
+          <button type="button" id="ptype-month" data-ptype="month">Måned</button>
+        </div>
+        <div class="period">
+          <button type="button" id="period-prev" aria-label="Forrige periode">‹</button>
+          <span id="period-label">Uke</span>
+          <button type="button" id="period-next" aria-label="Neste periode">›</button>
+        </div>
+      </div>
+      <div class="group-r">
+        <button type="button" id="btn-add-numbers" class="btn">+ Legg inn tall</button>
+        <button type="button" id="btn-import" class="btn">Importer P&amp;L</button>
+        <button type="button" id="btn-report" class="btn primary">Lag rapport</button>
+      </div>
+    </div>
+    <div id="numbers-body"></div>
+  </main>
+
+  <main id="view-notes" class="view" data-view="notes" hidden>
+    <div id="notes-list"></div>
+  </main>
+
+  <footer id="dock" class="dock">
+    <div id="dictate" class="dictate" role="status" aria-live="polite" hidden>
+      <div class="dictate-main">
+        <span class="dictate-mic" aria-hidden="true"><svg viewBox="0 0 24 24"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/></svg></span>
+        <div><div id="dictate-key" class="dictate-key">Trykk Fn to ganger og snakk</div><div id="dictate-help" class="dictate-help"></div></div>
+      </div>
+      <button type="button" id="dictate-cancel" class="btn">Avbryt</button>
+    </div>
+    <div id="attachments" class="attachments" hidden></div>
+    <div id="status" class="status" aria-live="polite"></div>
+    <form id="composer" class="composer" autocomplete="off">
+      <button id="orb" type="button" class="orb-btn" aria-label="Snakk med iCONIC"><span class="o1"></span><span class="o2"></span><span class="o3"></span></button>
+      <button id="attach" type="button" class="attach-btn" aria-label="Legg ved bilde eller fil" title="Legg ved bilde, skjermbilde, Excel eller CSV">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 12.5l-7.8 7.8a5 5 0 0 1-7.1-7.1l8.5-8.5a3.3 3.3 0 0 1 4.7 4.7l-8.5 8.5a1.7 1.7 0 0 1-2.4-2.4l7.8-7.8"/></svg>
+      </button>
+      <input id="attach-input" type="file" accept="image/*,.csv,.txt,.md,.json,.xlsx,.xls" multiple hidden>
+      <textarea id="text" rows="1" placeholder="Spør iCONIC om alt, eller + for oppgave" aria-label="Melding til iCONIC"></textarea>
+      <button id="send" type="submit" class="send" aria-label="Send" disabled>
+        <svg id="send-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 19V5M6 11l6-6 6 6"/></svg>
+      </button>
+    </form>
+  </footer>
+</div>
+
+<dialog id="voice" class="voice" aria-label="Samtale med iCONIC">
+  <div class="voice-inner">
+    <div class="voice-top"><span class="voice-brand"><span class="wordmark-dot" aria-hidden="true"></span>iCONIC</span><button type="button" id="voice-close" class="icon-btn" aria-label="Avslutt samtale"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg></button></div>
+    <div class="voice-stage">
+      <button type="button" id="voice-orb" class="big-orb huge" aria-label="Avbryt eller snakk på nytt"><span class="bo-glow"></span><span class="bo-ring"></span><span class="bo-core"></span><span class="bo-shine"></span></button>
+      <div id="voice-status" class="voice-status">Jeg lytter …</div>
+      <div id="voice-heard" class="voice-heard"></div>
+      <div id="voice-answer" class="voice-answer" aria-live="polite"></div>
+    </div>
+    <div class="voice-bottom">
+      <div id="voice-hint" class="voice-hint"></div>
+      <form id="voice-form" class="composer voice-composer" autocomplete="off">
+        <textarea id="voice-text" rows="1" placeholder="Snakk (diktering) eller skriv …" aria-label="Si eller skriv til iCONIC"></textarea>
+        <button type="submit" class="send" aria-label="Send"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 19V5M6 11l6-6 6 6"/></svg></button>
+      </form>
+    </div>
+  </div>
+</dialog>
+
+<dialog id="visit-dialog" class="sheet wide visit">
+  <form id="visit-form">
+    <div class="visit-head">
+      <div><h2 id="visit-title">Butikkbesøk</h2><div id="visit-progress" class="muted-s"></div></div>
+      <div id="visit-score" class="score-badge" hidden></div>
+    </div>
+    <div id="visit-start" class="form-grid">
+      <label class="full">Butikk<input id="visit-store" type="text" list="store-list" required autocomplete="off" placeholder="F.eks. Storo"></label>
+      <label class="full">Mal<select id="visit-template"></select></label>
+    </div>
+    <ol id="visit-items" class="visit-items" hidden></ol>
+    <label id="visit-note-wrap" class="visit-note" hidden>Oppsummering til butikksjef (valgfritt)<textarea id="visit-note" rows="3"></textarea></label>
+    <div class="sheet-actions">
+      <button type="button" id="visit-cancel" class="btn">Avbryt</button>
+      <button type="submit" id="visit-next" class="btn primary">Start</button>
+    </div>
+  </form>
+</dialog>
+
+<dialog id="store-sheet" class="sheet wide">
+  <div class="visit-head"><div><h2 id="ss-name">Butikk</h2><div id="ss-sub" class="muted-s"></div></div><button type="button" id="ss-close" class="icon-btn" aria-label="Lukk"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg></button></div>
+  <div id="ss-body"></div>
+  <div class="sheet-actions ss-actions">
+    <button type="button" id="ss-visit" class="btn primary">Start besøk</button>
+    <button type="button" id="ss-task" class="btn">+ Oppgave</button>
+    <button type="button" id="ss-numbers" class="btn">Endre tall</button>
+    <button type="button" id="ss-ask" class="btn">Spør iCONIC</button>
+  </div>
+</dialog>
+
+<dialog id="palette" class="palette" aria-label="Kommandoer">
+  <div class="pal-box">
+    <div class="pal-input">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="6"/><path d="M20 20l-4.5-4.5"/></svg>
+      <input id="pal-q" type="text" placeholder="Skriv en kommando, søk, eller spør iCONIC …" autocomplete="off" role="combobox" aria-controls="pal-list" aria-expanded="true">
+      <kbd>esc</kbd>
+    </div>
+    <ul id="pal-list" class="pal-list" role="listbox"></ul>
+    <div class="pal-foot"><span><kbd>↑</kbd><kbd>↓</kbd> velg</span><span><kbd>↵</kbd> utfør</span><span>Tips: <b>+ ring Lise i morgen kl 9</b> lager oppgave med påminnelse</span></div>
+  </div>
+</dialog>
+
+<dialog id="numbers-dialog" class="sheet">
+  <form id="numbers-form">
+    <h2>Legg inn tall</h2>
+    <p class="sub" style="margin:0 0 12px;color:var(--muted);font-size:14px">Beløp i kroner. Fyll inn det du har – resten kan stå tomt.</p>
+    <div class="form-grid">
+      <label class="full">Butikk<input id="nf-store" type="text" list="store-list" required autocomplete="off"></label>
+      <label>Periode<select id="nf-ptype"><option value="week">Uke</option><option value="month">Måned</option></select></label>
+      <label>Hvilken<input id="nf-period" type="text" placeholder="2026-W43 eller 2026-10" required></label>
+      <label>Omsetning<input id="nf-revenue" type="text" inputmode="decimal" required></label>
+      <label>Budsjett (omsetning)<input id="nf-budget" type="text" inputmode="decimal"></label>
+      <label>Lønnskostnad<input id="nf-labor" type="text" inputmode="decimal"></label>
+      <label>Varekost<input id="nf-cogs" type="text" inputmode="decimal"></label>
+      <label>Svinn<input id="nf-waste" type="text" inputmode="decimal"></label>
+      <label>Andre kostnader<input id="nf-other" type="text" inputmode="decimal"></label>
+      <label>Antall kunder<input id="nf-transactions" type="text" inputmode="numeric"></label>
+    </div>
+    <datalist id="store-list"></datalist>
+    <div class="sheet-actions">
+      <button type="button" id="nf-delete" class="btn" hidden>Slett</button>
+      <span></span>
+      <div style="display:flex;gap:8px"><button type="button" id="nf-cancel" class="btn">Avbryt</button><button class="btn primary">Lagre</button></div>
+    </div>
+  </form>
+</dialog>
+
+<dialog id="import-dialog" class="sheet wide">
+  <form id="import-form">
+    <h2>Importer P&amp;L</h2>
+    <p style="margin:0 0 10px;color:var(--muted);font-size:14px">Last opp Excel- eller CSV-filen, et skjermbilde av rapporten, eller lim inn tallene. iCONIC finner butikker, perioder og beløp, og viser dem før noe lagres.</p>
+    <input id="import-file" type="file" accept=".xlsx,.xls,.csv,.txt,image/*">
+    <textarea id="import-text" placeholder="…eller lim inn fra Excel her" aria-label="Lim inn tall"></textarea>
+    <p id="import-status" class="import-status" aria-live="polite"></p>
+    <div id="import-preview" class="preview"></div>
+    <div class="sheet-actions">
+      <button type="button" id="import-cancel" class="btn">Lukk</button>
+      <div style="display:flex;gap:8px"><button type="button" id="import-read" class="btn primary">Les inn</button><button type="button" id="import-save" class="btn primary" hidden>Lagre</button></div>
+    </div>
+  </form>
+</dialog>
+
+<dialog id="settings" class="sheet">
+  <form method="dialog">
+    <h2>Innstillinger</h2>
+    <div class="field">
+      <label for="opt-name">Hva skal jeg kalle deg?</label>
+      <input id="opt-name" type="text" placeholder="Fornavn" autocomplete="given-name">
+    </div>
+    <div class="field">
+      <span class="lbl">Svarstil</span>
+      <div class="seg" role="group" aria-label="Svarstil">
+        <button type="button" id="tier-auto" data-tier="auto">Auto</button>
+        <button type="button" id="tier-quick" data-tier="quick">Rask</button>
+        <button type="button" id="tier-default" data-tier="complex">Grundigst</button>
+      </div>
+      <small>Auto velger selv: rask for korte spørsmål, smartest og grundigst for HR, analyser og planer.</small>
+    </div>
+    <div class="field">
+      <span class="lbl">Mine mål for tallene</span>
+      <div class="form-grid">
+        <label>Lønn maks %<input id="opt-t-labor" type="text" inputmode="decimal"></label>
+        <label>Varekost maks %<input id="opt-t-cogs" type="text" inputmode="decimal"></label>
+        <label>Svinn maks %<input id="opt-t-waste" type="text" inputmode="decimal"></label>
+      </div>
+      <small>Brukes til grønt/gult/rødt i Tall-fanen og i analysene.</small>
+    </div>
+    <div class="field inline">
+      <label for="opt-speak">Les svar høyt</label>
+      <input id="opt-speak" class="switch" type="checkbox" checked>
+    </div>
+    <div class="field">
+      <label for="opt-voice">Stemme</label>
+      <select id="opt-voice"></select>
+      <small id="voice-hint"></small>
+    </div>
+    <div class="field">
+      <label for="opt-rate">Talehastighet</label>
+      <input id="opt-rate" type="range" min="0.8" max="1.4" step="0.05" value="1.05">
+    </div>
+    <div class="sheet-actions">
+      <button type="button" id="btn-new" class="btn">Ny samtale</button>
+      <button value="close" class="btn primary">Ferdig</button>
+    </div>
+  </form>
+</dialog>
+
+<script>
+(() => {
+  "use strict";
+  const $ = (s) => document.querySelector(s);
+  const el = (tag, cls, text) => { const n = document.createElement(tag); if (cls) n.className = cls; if (text !== undefined) n.textContent = text; return n; };
+  const statusEl = $("#status");
+  const threadEl = $("#thread");
+  const homeView = $("#view-home");
+  const textEl = $("#text");
+  const sendBtn = $("#send");
+  const synth = window.speechSynthesis;
+  const Recognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+
+  // ---------- Per-device settings ----------
+  const local = {
+    get(k, d) { try { const v = localStorage.getItem("iconic." + k); return v === null ? d : JSON.parse(v); } catch { return d; } },
+    set(k, v) { try { localStorage.setItem("iconic." + k, JSON.stringify(v)); } catch { /* ignore */ } },
+  };
+  const settings = { speak: local.get("speak", true), voice: local.get("voice", ""), rate: local.get("rate", 1.05), tier: local.get("tier2", "auto") };
+
+  // ---------- Synced state ----------
+  const EMPTY = () => ({ profile: {}, tasks: [], events: [], notes: [], people: [], drafts: [], files: [], financials: [], analyses: {}, visits: [], checklists: [], incidents: [], kpis: [] });
+  let state = EMPTY();
+  let docRef = null, sample = null, downloads = null, toolsAllowed = 0;
+  let saving = Promise.resolve(), dirty = false, saveTimer = null;
+
+  const newId = () => Math.random().toString(36).slice(2, 10);
+  const pad = (n) => String(n).padStart(2, "0");
+  const localDate = (d = new Date()) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+  const coll = (name) => (Array.isArray(state[name]) ? state[name] : (state[name] = []));
+  const profile = () => (state.profile && typeof state.profile === "object" ? state.profile : (state.profile = {}));
+
+  function persist() {
+    renderAll();
+    if (!docRef) return;
+    dirty = true;
+    clearTimeout(saveTimer);
+    saveTimer = setTimeout(() => {
+      const body = JSON.parse(JSON.stringify(state));
+      saving = saving.then(() => docRef.set(body)).then(
+        () => { dirty = false; },
+        (e) => showNotice(e?.code === "quota_exceeded" ? "Lagringen er full. Slett gamle notater eller utkast." : "Klarte ikke å lagre akkurat nå. Det du ser, ligger fortsatt her."),
+      );
+    }, 300);
+  }
+  function showNotice(t) { const n = $("#notice"); n.textContent = t || ""; n.hidden = !t; }
+
+  // ---------- Tools Claude can use (run here, in the page) ----------
+  const PRIORITIES = ["lav", "normal", "høy", "kritisk"];
+  const RANK = { kritisk: 0, høy: 1, normal: 2, lav: 3 };
+  const sortTasks = (l) => [...l].sort((a, b) => (RANK[a.priority] ?? 2) - (RANK[b.priority] ?? 2) || (a.due || "9999").localeCompare(b.due || "9999"));
+  const str = (v) => (v === undefined || v === null || v === "" ? undefined : String(v));
+  const has = (v, f) => !f || String(v || "").toLowerCase().includes(String(f).toLowerCase());
+  const obj = (properties, required = []) => ({ type: "object", properties, required });
+  const s = (description, extra = {}) => ({ type: "string", description, ...extra });
+  const actionsThisTurn = [];
+
+  function addTask(i) {
+    const t = { id: newId(), created_at: new Date().toISOString(), status: "open", priority: PRIORITIES.includes(i.priority) ? i.priority : "normal" };
+    for (const k of ["title", "due", "remind_at", "store", "category", "notes"]) if (str(i[k])) t[k] = str(i[k]);
+    coll("tasks").push(t); persist(); return t;
+  }
+
+  const TOOL_DEFS = [
+    { name: "get_overview", description: "Oversikt over en dag: forfalte og dagens oppgaver, påminnelser, avtaler, åpne avvik og uferdige sjekklister. Bruk ved briefing eller 'hva skjer i dag'.",
+      inputSchema: obj({ date: s("YYYY-MM-DD, utelat for i dag") }),
+      run({ date }) {
+        date = str(date) || localDate();
+        const open = coll("tasks").filter((t) => t.status !== "done");
+        return { date, overdue: sortTasks(open.filter((t) => t.due && t.due.slice(0, 10) < date)), due_today: sortTasks(open.filter((t) => t.due && t.due.slice(0, 10) === date)),
+          reminders_today: open.filter((t) => t.remind_at && t.remind_at.slice(0, 10) === date), open_task_count: open.length,
+          events: coll("events").filter((e) => e.start.slice(0, 10) === date).sort((a, b) => a.start.localeCompare(b.start)),
+          open_incidents: coll("incidents").filter((x) => x.status !== "resolved"),
+          unfinished_checklists: coll("checklists").filter((c) => c.items.some((x) => !x.done)).map((c) => ({ id: c.id, title: c.title, remaining: c.items.filter((x) => !x.done).length })) };
+      } },
+    { name: "add_task", description: "Legger til en oppgave. Bruk remind_at når brukeren vil bli minnet på noe.",
+      inputSchema: obj({ title: s("Kort beskrivelse"), due: s("Frist YYYY-MM-DD eller YYYY-MM-DDTHH:MM"), remind_at: s("Påminnelse YYYY-MM-DDTHH:MM"), priority: s("Prioritet", { enum: PRIORITIES }), store: s("Butikk/sted"), category: s("F.eks. jobb, privat, økonomi"), notes: s("Detaljer") }, ["title"]),
+      label: "Oppgave lagt til",
+      run(i) { if (!str(i.title)) throw new Error("Mangler title"); return addTask(i); } },
+    { name: "get_financials", description: "Henter butikkenes tall (omsetning, budsjett, lønn, varekost, svinn, resultat, nøkkeltall i prosent) for en uke eller måned, pluss brukerens mål. Bruk før du analyserer tall eller lager rapporter.",
+      inputSchema: obj({ period_type: s("week eller month", { enum: ["week", "month"] }), period: s("YYYY-Www eller YYYY-MM; utelat for siste periode med data"), store: s("Filtrer på butikk"), history: { type: "integer", description: "Antall perioder bakover (standard 1, maks 12)" } }),
+      run(i) { return Numbers.query(i); } },
+    { name: "save_financials", description: "Lagrer tall for én eller flere butikker og perioder (beløp i kroner). Bruk når brukeren forteller tall, f.eks. 'omsetningen på Karl Johan uke 43 var 210 000'.",
+      inputSchema: obj({ entries: { type: "array", items: { type: "object", properties: { store: s("Butikk"), period_type: s("week eller month"), period: s("YYYY-Www eller YYYY-MM"), revenue: { type: "number" }, budget: { type: "number" }, labor: { type: "number" }, cogs: { type: "number" }, waste: { type: "number" }, other: { type: "number" }, transactions: { type: "number" } }, required: ["store", "period_type", "period"] } } }, ["entries"]),
+      label: "Tall lagret",
+      run(i) { const n = Numbers.upsertMany(Array.isArray(i.entries) ? i.entries : []); if (!n) throw new Error("Ingen gyldige rader"); return { saved: n }; } },
+    { name: "get_store", description: "Alt om én butikk: siste nøkkeltall og trend, butikkbesøk med score og avvik, åpne oppgaver og avvik. Bruk når brukeren spør hvordan det går med en butikk.",
+      inputSchema: obj({ store: s("Butikkens navn") }, ["store"]),
+      run({ store }) { return Stores.overview(String(store || "")); } },
+    { name: "list_tasks", description: "Lister oppgaver sortert etter prioritet og frist.",
+      inputSchema: obj({ status: s("open (standard), done eller all", { enum: ["open", "done", "all"] }), store: s("Filtrer på butikk/sted") }),
+      run({ status = "open", store }) {
+        const l = coll("tasks").filter((t) => status === "all" || (status === "done" ? t.status === "done" : t.status !== "done")).filter((t) => has(t.store, store));
+        return { count: l.length, tasks: sortTasks(l).slice(0, 60) };
+      } },
+    { name: "update_task", description: "Endrer en oppgave (ferdig, frist, prioritet, påminnelse) eller sletter den med delete: true. Spør før du sletter.",
+      inputSchema: obj({ id: s("Oppgavens id"), status: s("open eller done", { enum: ["open", "done"] }), title: s("Ny tittel"), due: s("Ny frist"), remind_at: s("Ny påminnelse"), priority: s("Ny prioritet", { enum: PRIORITIES }), notes: s("Nye notater"), delete: { type: "boolean", description: "true = slett" } }, ["id"]),
+      label: "Oppgave oppdatert",
+      run(i) {
+        const l = coll("tasks"); const idx = l.findIndex((t) => t.id === String(i.id));
+        if (idx < 0) throw new Error("Fant ingen oppgave med den id-en");
+        if (i.delete === true || i.delete === "true") { const [g] = l.splice(idx, 1); persist(); return { deleted: g.title }; }
+        const t = l[idx];
+        for (const k of ["status", "title", "due", "remind_at", "notes"]) if (str(i[k])) t[k] = str(i[k]);
+        if (PRIORITIES.includes(i.priority)) t.priority = i.priority;
+        if (str(i.remind_at)) t.reminded = false;
+        if (t.status === "done") t.completed_at = new Date().toISOString();
+        persist(); return t;
+      } },
+    { name: "add_event", description: "Legger en avtale i kalenderen.",
+      inputSchema: obj({ title: s("Hva"), start: s("YYYY-MM-DDTHH:MM"), end: s("YYYY-MM-DDTHH:MM"), location: s("Sted"), notes: s("Agenda/detaljer") }, ["title", "start"]),
+      label: "Lagt i kalenderen",
+      run(i) {
+        if (!str(i.title) || !str(i.start)) throw new Error("Mangler title eller start");
+        const e = { id: newId() }; for (const k of ["title", "start", "end", "location", "notes"]) if (str(i[k])) e[k] = str(i[k]);
+        coll("events").push(e); persist(); return e;
+      } },
+    { name: "list_events", description: "Lister avtaler fra og med en dato til og med en dato.",
+      inputSchema: obj({ from: s("YYYY-MM-DD"), to: s("YYYY-MM-DD") }, ["from", "to"]),
+      run({ from, to }) {
+        from = str(from) || localDate(); to = str(to) || from;
+        const l = coll("events").filter((e) => e.start.slice(0, 10) >= from && e.start.slice(0, 10) <= to).sort((a, b) => a.start.localeCompare(b.start));
+        return { count: l.length, events: l };
+      } },
+    { name: "delete_event", description: "Sletter en avtale. Spør brukeren først.",
+      inputSchema: obj({ id: s("Avtalens id") }, ["id"]), label: "Fjernet fra kalenderen",
+      run({ id }) { const l = coll("events"); const i = l.findIndex((e) => e.id === String(id)); if (i < 0) throw new Error("Fant ingen avtale"); const [g] = l.splice(i, 1); persist(); return { deleted: g.title }; } },
+    { name: "save_note", description: "Lagrer noe brukeren vil at du skal huske. Kategori 'om meg' for varige fakta om brukeren (huskes i alle samtaler).",
+      inputSchema: obj({ text: s("Innholdet"), category: s("Kategori", { enum: ["om meg", "jobb", "privat", "familie", "økonomi", "helse", "idé", "møtereferat", "generelt"] }) }, ["text"]),
+      label: "Notat lagret",
+      run(i) { if (!str(i.text)) throw new Error("Mangler text"); const n = { id: newId(), created_at: new Date().toISOString(), text: str(i.text), category: str(i.category) || "generelt" }; coll("notes").push(n); persist(); return n; } },
+    { name: "search_notes", description: "Søker i lagrede notater. Utelat query for de nyeste.",
+      inputSchema: obj({ query: s("Søkeord") }),
+      run({ query }) { const w = String(query || "").toLowerCase().split(/\s+/).filter(Boolean); const l = coll("notes").filter((n) => w.every((x) => (n.text + " " + n.category).toLowerCase().includes(x))).slice(-30).reverse(); return { count: l.length, notes: l }; } },
+    { name: "create_draft", description: "Lager et ferdig utkast (e-post, SMS, melding eller dokument) som vises med kopier-knapp. Les ikke opp hele utkastet.",
+      inputSchema: obj({ kind: s("Type", { enum: ["epost", "sms", "melding", "dokument"] }), to: s("Mottaker"), subject: s("Emne/tittel"), body: s("Hele teksten") }, ["kind", "body"]),
+      label: "Utkast laget",
+      run(i) {
+        if (!str(i.body)) throw new Error("Mangler body");
+        const d = { id: newId(), created_at: new Date().toISOString(), kind: ["epost", "sms", "melding", "dokument"].includes(i.kind) ? i.kind : "melding" };
+        for (const k of ["to", "subject", "body"]) if (str(i[k])) d[k] = str(i[k]);
+        const l = coll("drafts"); l.push(d); if (l.length > 30) l.splice(0, l.length - 30); persist(); return { id: d.id, saved: true };
+      } },
+    { name: "create_file", description: "Lager en fil brukeren kan laste ned: en plan, rapport, referat, sjekkliste eller tabell. Bruk format html for dokumenter (åpnes i nettleser/Word og kan skrives ut som PDF), csv for tabeller (åpnes i Excel/Numbers, bruk semikolon som skilletegn), md eller txt for enkel tekst. Les ikke opp innholdet.",
+      inputSchema: obj({ title: s("Kort tittel, blir filnavnet"), format: s("Filformat", { enum: ["html", "csv", "md", "txt"] }), content: s("Hele innholdet. For html: et komplett, pent formatert dokument med <h1>, avsnitt og tabeller.") }, ["title", "format", "content"]),
+      label: "Fil laget",
+      run(i) {
+        if (!str(i.content)) throw new Error("Mangler content");
+        const format = ["html", "csv", "md", "txt"].includes(i.format) ? i.format : "txt";
+        const content = String(i.content).slice(0, 200000);
+        const f = { id: newId(), created_at: new Date().toISOString(), title: str(i.title) || "Dokument", format, content };
+        const l = coll("files"); l.push(f); if (l.length > 20) l.splice(0, l.length - 20); persist();
+        return { id: f.id, saved: true, note: "Brukeren ser filen med en Last ned-knapp." };
+      } },
+    { name: "add_person", description: "Lagrer en person (ansatt, kollega, leder, leverandør, familie, venn) med kontaktinfo og notater.",
+      inputSchema: obj({ name: s("Navn"), relation: s("Relasjon"), role: s("Rolle"), store: s("Butikk/arbeidssted"), phone: s("Telefon"), email: s("E-post"), notes: s("Notater, bursdag osv.") }, ["name"]),
+      label: "Person lagret",
+      run(i) { if (!str(i.name)) throw new Error("Mangler name"); const p = { id: newId() }; for (const k of ["name", "relation", "role", "store", "phone", "email", "notes"]) if (str(i[k])) p[k] = str(i[k]); coll("people").push(p); persist(); return p; } },
+    { name: "find_people", description: "Finner lagrede personer på navn, butikk eller relasjon.",
+      inputSchema: obj({ query: s("Navn, butikk eller relasjon; utelat for alle") }),
+      run({ query }) { const l = coll("people").filter((p) => !query || has(`${p.name} ${p.store || ""} ${p.relation || ""} ${p.role || ""}`, query)); return { count: l.length, people: l.slice(0, 50) }; } },
+    { name: "log_incident", description: "Registrerer et avvik (HMS, mattrygghet, utstyr, kundeklage, svinn, personal), eller lukker et med id + resolution.",
+      inputSchema: obj({ id: s("Bare for å lukke: avvikets id"), resolution: s("Bare for å lukke: hva ble gjort"), title: s("Kort tittel"), store: s("Butikk"), description: s("Hva skjedde"), severity: s("lav, middels eller høy", { enum: ["lav", "middels", "høy"] }) }),
+      label: "Avvik oppdatert",
+      run(i) {
+        if (str(i.id)) { const x = coll("incidents").find((y) => y.id === String(i.id)); if (!x) throw new Error("Fant ikke avviket"); x.status = "resolved"; x.resolution = str(i.resolution) || "Lukket"; x.resolved_at = new Date().toISOString(); persist(); return x; }
+        if (!str(i.title)) throw new Error("Mangler title");
+        const x = { id: newId(), date: localDate(), status: "open", severity: ["lav", "middels", "høy"].includes(i.severity) ? i.severity : "middels" };
+        for (const k of ["title", "store", "description"]) if (str(i[k])) x[k] = str(i[k]);
+        coll("incidents").push(x); persist(); return x;
+      } },
+    { name: "kpi", description: "Registrerer et nøkkeltall (gi metric + value) eller henter historikk (gi bare metric/store). F.eks. omsetning, lønnsprosent, svinn.",
+      inputSchema: obj({ metric: s("Nøkkeltall"), value: { type: "number", description: "Verdi – utelat for å hente" }, target: { type: "number", description: "Mål/budsjett" }, unit: s("kr, %, stk"), store: s("Butikk"), date: s("YYYY-MM-DD") }),
+      label: "Nøkkeltall lagret",
+      run(i) {
+        const v = i.value === undefined || i.value === null || i.value === "" ? null : Number(String(i.value).replace(",", ".").replace(/\s/g, ""));
+        if (v !== null && Number.isFinite(v)) {
+          if (!str(i.metric)) throw new Error("Mangler metric");
+          const k = { id: newId(), metric: str(i.metric), value: v, date: str(i.date) || localDate() };
+          if (i.target !== undefined && Number.isFinite(Number(i.target))) k.target = Number(i.target);
+          for (const f of ["unit", "store"]) if (str(i[f])) k[f] = str(i[f]);
+          const l = coll("kpis"); l.push(k); if (l.length > 500) l.splice(0, l.length - 500); persist(); return k;
+        }
+        const l = coll("kpis").filter((k) => has(k.metric, i.metric) && has(k.store, i.store)).sort((a, b) => a.date.localeCompare(b.date));
+        return { count: l.length, kpis: l.slice(-60) };
+      } },
+    { name: "checklist", description: "Lager en sjekkliste (title + items), krysser av et punkt (id + item_number), eller lister aktive lister (ingen argumenter).",
+      inputSchema: obj({ title: s("Navn på ny liste"), items: { type: "array", items: { type: "string" }, description: "Punkter" }, id: s("Listens id"), item_number: { type: "integer", description: "Punktnummer fra 1" }, done: { type: "boolean", description: "true = ferdig" } }),
+      label: "Sjekkliste oppdatert",
+      run(i) {
+        if (str(i.title) && i.items) {
+          const items = (Array.isArray(i.items) ? i.items : String(i.items).split(/\n|;/)).map((t) => String(t).trim()).filter(Boolean);
+          const c = { id: newId(), title: str(i.title), items: items.map((text) => ({ text, done: false })) }; coll("checklists").push(c); persist(); return c;
+        }
+        if (str(i.id)) {
+          const c = coll("checklists").find((x) => x.id === String(i.id)); if (!c) throw new Error("Fant ikke sjekklisten");
+          const it = c.items[Number(i.item_number) - 1]; if (!it) throw new Error(`Listen har ${c.items.length} punkter`);
+          it.done = !(i.done === false || i.done === "false"); persist(); return { list: c.title, item: it.text, done: it.done, remaining: c.items.filter((x) => !x.done).length };
+        }
+        return { checklists: coll("checklists").filter((c) => c.items.some((x) => !x.done)).map((c) => ({ ...c, items: c.items.map((x, n) => ({ number: n + 1, ...x })) })) };
+      } },
+  ];
+  function toolsForCall() {
+    return (toolsAllowed ? TOOL_DEFS.slice(0, toolsAllowed) : []).map((t) => ({
+      name: t.name, description: t.description, inputSchema: t.inputSchema,
+      execute: async (input) => {
+        const r = t.run(input || {});
+        actionsThisTurn.push({ tool: t.name, input, label: t.label, result: t.name === "create_file" ? coll("files").find((f) => f.id === r.id) : undefined });
+        return r;
+      },
+    }));
+  }
+
+  // ---------- Instructions ----------
+  const WEEKDAY = new Intl.DateTimeFormat("nb-NO", { weekday: "long", day: "numeric", month: "long", year: "numeric", hour: "2-digit", minute: "2-digit" });
+  function instructions() {
+    const aboutMe = coll("notes").filter((n) => n.category === "om meg").map((n) => "- " + n.text).join("\n");
+    const name = profile().name;
+    return `Du heter iCONIC (uttales «aikonik») og er brukerens personlige partner og assistent.${name ? ` Brukeren heter ${name}.` : ""} Brukeren jobber som Operations Manager i Espresso House, men du hjelper med alt: jobb, privatliv, økonomi, planlegging, skriving, beslutninger og problemer som må løses.
+
+Slik løser du ting: gjør jobben i stedet for å forklare hvordan. Kom med ett konkret forslag først, så kort begrunnelse. Del store ting opp i neste konkrete steg. Når noe skal sendes til andre, lag et ferdig utkast med create_draft og si kort hva du skrev. Når brukeren vil ha en fil, et dokument, en rapport eller en tabell, lag den med create_file og si at den ligger klar til nedlasting. For butikktall: hent dem med get_financials før du svarer, regn presist, sammenlign mot mål og forrige periode, og pek på de to–tre viktigste avvikene med konkrete tiltak. Ukes- og månedsrapporter lages best med knappen «Lag rapport» i Tall-fanen, men du kan også lage dem med create_file. Når brukeren spør om en butikk, bruk get_store for tall, besøksscore og åpne saker. Du kan ikke sende meldinger, ringe, betale eller søke på nettet selv – si det rett ut når det trengs. Når brukeren sier "husk", "minn meg på", "jeg må" eller "legg inn", lagre det med verktøyene. Varige fakta om brukeren lagres som notat med kategori "om meg". Spør før du sletter noe. Ved briefing, bruk get_overview. Regn om relative datoer ut fra tidspunktet under. Ikke dikt opp fakta. På jus, helse og økonomi: gi praktisk retning, og si når noe bør sjekkes med HR, lege eller rådgiver.
+
+Svarene leses høyt som av Siri: naturlig, muntlig norsk bokmål, vanligvis 1–3 korte setninger. Ingen markdown, punktlister, overskrifter, emojier eller lenker. Nevn maks tre–fire ting i en setning og tilby mer. Bekreft kort hva du gjorde, uten id-er. Si klokkeslett slik man sier dem ("fredag klokka ni"). Høyst ett oppfølgingsspørsmål.
+
+Nå: ${WEEKDAY.format(new Date())} (dato ${localDate()}).
+Åpne oppgaver: ${coll("tasks").filter((t) => t.status !== "done").length}.${aboutMe ? "\nDet du vet om brukeren:\n" + aboutMe : ""}`;
+  }
+
+  // ---------- Conversation ----------
+  let turns = local.get("turns", []); if (!Array.isArray(turns)) turns = [];
+  let busy = false, controller = null;
+  const STATUS = { idle: "", listening: "Jeg lytter …", thinking: "Tenker …", speaking: "Trykk på kula for å avbryte" };
+  function setState(st) { document.body.dataset.state = st; statusEl.textContent = STATUS[st] || ""; }
+
+  function threadHead() {
+    if (threadEl.querySelector(".thread-head") || !threadEl.querySelector(".msg")) return;
+    const h = el("div", "thread-head"); h.append(el("span", "", "Samtale"));
+    const b = el("button", "link-btn", "Ny samtale"); b.type = "button"; b.addEventListener("click", newConversation);
+    h.append(b); threadEl.prepend(h);
+  }
+  function addUser(text) { threadEl.append(el("div", "msg user", text)); threadHead(); scrollDown(); }
+  function addBot(text, cls = "") {
+    const m = el("div", "msg bot " + cls);
+    const av = el("button", "avatar"); av.type = "button"; av.setAttribute("aria-label", "Snakk med iCONIC"); av.title = "Trykk for å snakke";
+    av.addEventListener("click", () => { showView("home"); listen(); }); m.append(av);
+    const body = el("div", "body"); const t = el("div", "text", text); body.append(t); m.append(body);
+    threadEl.append(m); threadHead(); scrollDown();
+    return { m, t, body };
+  }
+  function scrollDown() { requestAnimationFrame(() => { homeView.scrollTop = homeView.scrollHeight; }); }
+  function newConversation() { turns = []; saveTurns(); threadEl.replaceChildren(); homeView.scrollTop = 0; }
+
+  const DRAFT_NAMES = { epost: "E-post", sms: "SMS", melding: "Melding", dokument: "Dokument" };
+  function draftCard(d) {
+    const box = el("div", "draft");
+    box.append(el("div", "draft-head", [DRAFT_NAMES[d.kind] || "Utkast", d.to && "til " + d.to].filter(Boolean).join(" ")));
+    if (d.subject) box.append(el("div", "draft-subject", d.subject));
+    const body = el("div", "", d.body); box.append(body);
+    const actions = el("div", "draft-actions");
+    const copyBtn = (label, text) => {
+      const b = el("button", "btn", label); b.type = "button";
+      b.addEventListener("click", async () => {
+        try { await navigator.clipboard.writeText(text); b.textContent = "Kopiert ✓"; }
+        catch { const r = document.createRange(); r.selectNodeContents(body); const sel = getSelection(); sel.removeAllRanges(); sel.addRange(r); b.textContent = "Marker og kopier"; }
+      });
+      return b;
+    };
+    actions.append(copyBtn("Kopier tekst", d.kind === "epost" || !d.subject ? d.body : d.subject + "\n\n" + d.body));
+    if (d.kind === "epost" && d.subject) actions.append(copyBtn("Kopier emne", d.subject));
+    actions.append(downloadBtn(() => ({
+      filename: safeName(d.subject || (DRAFT_NAMES[d.kind] || "Utkast") + (d.to ? " til " + d.to : "")) + ".txt",
+      data: [d.to && "Til: " + d.to, d.subject && "Emne: " + d.subject, "", d.body].filter((x) => x !== undefined && x !== false).join("\n"),
+    })));
+    box.append(actions);
+    return box;
+  }
+
+  // ---------- Files & downloads ----------
+  const FORMAT_NAMES = { html: "Dokument", csv: "Tabell (Excel)", md: "Tekst", txt: "Tekst" };
+  function safeName(t) { return String(t || "iCONIC").replace(/[\\/:*?"<>|]+/g, " ").replace(/\s+/g, " ").trim().slice(0, 80) || "iCONIC"; }
+  function fileData(f) {
+    if (f.format === "csv") return "\uFEFF" + f.content;
+    if (f.format === "html" && !/<html[\s>]/i.test(f.content)) {
+      return `<!doctype html><html lang="nb"><head><meta charset="utf-8"><title>${f.title.replace(/[<&]/g, "")}</title><style>body{font-family:-apple-system,Segoe UI,sans-serif;max-width:760px;margin:40px auto;padding:0 20px;line-height:1.55;color:#111}table{border-collapse:collapse;width:100%}td,th{border:1px solid #ccc;padding:6px 8px;text-align:left}h1,h2{letter-spacing:-.01em}</style></head><body>${f.content}</body></html>`;
+    }
+    return f.content;
+  }
+  async function saveFile(make, btn) {
+    if (!downloads) { showNotice("Nedlasting er ikke tilgjengelig i denne visningen. Åpne iCONIC på claude.ai."); return; }
+    const old = btn.textContent;
+    try {
+      const { filename, data } = make();
+      await downloads.save({ filename, data });
+      btn.textContent = "Lastet ned ✓";
+    } catch (e) {
+      if (e?.code === "declined") btn.textContent = old;
+      else if (e?.code === "rate_limited") btn.textContent = "Vent litt …";
+      else { btn.textContent = old; showNotice("Klarte ikke å laste ned filen akkurat nå."); }
+    }
+  }
+  function downloadBtn(make, label = "Last ned") {
+    const b = el("button", "btn", label); b.type = "button";
+    b.addEventListener("click", () => saveFile(make, b));
+    return b;
+  }
+  function fileCard(f) {
+    const box = el("div", "draft file");
+    box.append(el("div", "draft-head", `${FORMAT_NAMES[f.format] || "Fil"} · .${f.format}`));
+    box.append(el("div", "draft-subject", f.title));
+    const preview = f.format === "html" ? f.content.replace(/<style[\s\S]*?<\/style>/gi, "").replace(/<[^>]+>/g, " ") : f.content;
+    box.append(el("div", "file-preview", preview.replace(/\s+/g, " ").trim().slice(0, 180) + (preview.length > 180 ? " …" : "")));
+    const actions = el("div", "draft-actions");
+    const dl = downloadBtn(() => ({ filename: safeName(f.title) + "." + f.format, data: fileData(f) }), "Last ned");
+    dl.classList.add("primary");
+    actions.append(dl);
+    box.append(actions);
+    return box;
+  }
+
+  function friendlyError(code) {
+    return ({
+      not_granted: "Jeg trenger lov til å bruke Claude-kontoen din. Last inn siden på nytt og trykk Tillat.",
+      rate_limited: "Nå har vi snakket mye på kort tid. Prøv igjen om litt.",
+      session_expired: "Du må logge inn på claude.ai på nytt.",
+      sampling_disabled: "Claude er ikke tilgjengelig på denne kontoen akkurat nå.",
+      refused: "Det kan jeg dessverre ikke hjelpe med. Prøv å si det på en annen måte.",
+      prompt_too_large: "Samtalen ble for lang. Trykk «Ny samtale».",
+      needs_key: "Jeg trenger en AI-nøkkel først. Trykk ⚙︎ Innstillinger → AI-nøkkel.",
+      bad_key: "AI-nøkkelen virker ikke. Sjekk den under ⚙︎ Innstillinger → AI-nøkkel.",
+      overloaded: "AI-tjenesten er travel akkurat nå. Prøv igjen om et øyeblikk.",
+      no_credit: "Kontoen hos AI-tjenesten er tom for kreditt. Fyll på, eller bytt til gratis Google Gemini under Innstillinger.",
+    })[code] || "Beklager, jeg fikk ikke kontakt akkurat nå. Prøv igjen.";
+  }
+
+  function setSendMode(stop) {
+    sendBtn.disabled = !stop && !textEl.value.trim() && !pendingFiles.length;
+    sendBtn.setAttribute("aria-label", stop ? "Stopp" : "Send");
+    $("#send-icon").innerHTML = stop ? '<rect x="7" y="7" width="10" height="10" rx="2"/>' : '<path d="M12 19V5M6 11l6-6 6 6"/>';
+  }
+
+  // Picks how hard iCONIC thinks: quick for short everyday things, the most capable model for HR, analysis and plans.
+  function chooseTier(text, hasFiles) {
+    if (settings.tier !== "auto") return settings.tier;
+    const t = text.toLowerCase();
+    if (/\b(hr|oppsigelse|advarsel|avskjed|permitter|sykemeld|arbeidsmiljøloven|lov|paragraf|tariff|varsling|trakasser|diskriminer|strategi|budsjett|p&l|resultat|analyser|analyse|rapport|plan|kampanje|marked|hvorfor|sammenlign|anbefal)\w*/.test(t) || hasFiles || t.length > 220) return "complex";
+    if (t.length < 70 && !/\?/.test(t)) return "quick";
+    return "default";
+  }
+  let pendingFiles = [];
+  async function ask(text) {
+    text = text.trim();
+    if (!text && pendingFiles.length) text = "Se på vedlegget og hjelp meg med det.";
+    if (!text || busy) return;
+    if (!voiceOpen()) showView("home");
+    if (!sample) { addBot("Jeg får ikke kontakt med Claude her. Åpne siden fra claude.ai mens du er logget inn.", "error"); return; }
+    busy = true; stopSpeaking();
+    const files = pendingFiles; pendingFiles = []; renderAttachments();
+    const images = files.filter((f) => f.image).map((f) => f.blob);
+    const textFiles = files.filter((f) => !f.image);
+    let content = text;
+    for (const f of textFiles) content += `\n\n[Vedlegg: ${f.name}]\n${f.text}`;
+    addUser(text + (files.length ? `\n📎 ${files.map((f) => f.name).join(", ")}` : ""));
+    turns.push({ role: "user", content: content.slice(0, 120000) });
+    const out = addBot("Tenker …", "thinking");
+    setState("thinking"); setSendMode(true);
+    actionsThisTurn.length = 0;
+    controller = new AbortController();
+    const history = turns.slice(-16); while (history.length && history[0].role !== "user") history.shift();
+    try {
+      const opts = { signal: controller.signal, cache: false, modelTier: chooseTier(text, files.length > 0),
+        onText: ({ text }) => { out.m.classList.remove("thinking"); out.t.textContent = text; scrollDown(); voiceShow(text); } };
+      if (images.length) opts.images = images;
+      const tools = toolsForCall(); if (tools.length) opts.tools = tools;
+      const { text: reply, truncated } = await sample([{ role: "user", content: instructions() }, ...history], opts);
+      const finalText = reply.trim() + (truncated ? " … (ble avbrutt)" : "");
+      out.m.classList.remove("thinking"); out.t.textContent = finalText;
+      voiceShow(finalText);
+      decorate(out.body);
+      turns.push({ role: "assistant", content: finalText }); saveTurns();
+      speak(finalText);
+    } catch (e) {
+      out.m.classList.remove("thinking");
+      if (e?.code === "cancelled") { out.t.textContent = e.text || "Stoppet."; if (e.text) turns.push({ role: "assistant", content: e.text }); }
+      else { out.t.textContent = friendlyError(e?.code); out.m.classList.add("error"); turns.pop(); voiceShow(friendlyError(e?.code)); }
+      decorate(out.body); saveTurns(); setState("idle"); voiceReady();
+    } finally {
+      busy = false; controller = null; setSendMode(false); scrollDown();
+    }
+  }
+  function decorate(body) {
+    const labels = [...new Set(actionsThisTurn.map((a) => a.label).filter(Boolean))];
+    if (labels.length) { const w = el("div", "tags"); for (const l of labels) w.append(el("span", "tag", "✓ " + l)); body.append(w); }
+    for (const a of actionsThisTurn) {
+      if (a.tool === "create_draft" && a.input?.body) body.append(draftCard(a.input));
+      if (a.tool === "create_file" && a.result) body.append(fileCard(a.result));
+    }
+  }
+  function saveTurns() { local.set("turns", turns.slice(-30)); }
+
+  // ---------- Voice out ----------
+  const speakable = (t) => t.replace(/[*_#`>|]/g, "").replace(/https?:\/\/\S+/g, "").replace(/\s+/g, " ").trim();
+  function pickVoice() {
+    const v = synth?.getVoices() ?? []; const chosen = v.find((x) => x.voiceURI === settings.voice); if (chosen) return chosen;
+    const nb = v.filter((x) => /^(nb|no|nn)(-|_|$)/i.test(x.lang));
+    return [...nb].sort((a, b) => voiceScore(b) - voiceScore(a))[0] || null;
+  }
+  // Higher = more natural. Premium/enhanced/neural voices sound far more human than the basic ones.
+  function voiceScore(x) {
+    const n = x.name.toLowerCase();
+    return (/premium/.test(n) ? 40 : 0) + (/enhanced|forbedret|natural|neural|online/.test(n) ? 30 : 0) + (/nora/.test(n) ? 5 : 0) + (x.localService === false ? 10 : 0);
+  }
+  function speak(text) {
+    if (!settings.speak || !synth) { setState("idle"); voiceReady(); return; }
+    try {
+      synth.cancel();
+      const parts = speakable(text).match(/[^.!?]+[.!?]*/g) || [];
+      if (!parts.length) return setState("idle");
+      const voice = pickVoice(); setState("speaking");
+      parts.forEach((p, n) => {
+        const u = new SpeechSynthesisUtterance(p.trim()); u.lang = voice?.lang || "nb-NO"; if (voice) u.voice = voice; u.rate = Number(settings.rate);
+        if (n === parts.length - 1) { u.onend = () => { if (document.body.dataset.state === "speaking") { setState("idle"); voiceReady(); } }; u.onerror = u.onend; }
+        synth.speak(u);
+      });
+    } catch { setState("idle"); }
+  }
+  function stopSpeaking() { try { synth?.cancel(); } catch { /* ignore */ } if (document.body.dataset.state === "speaking") setState("idle"); }
+
+  // ---------- Voice in ----------
+  // claude.ai pages may not use the microphone, so inside claude.ai iCONIC hands the listening to the
+  // device's own dictation (Fn Fn on Mac, 🎤 on iPhone) and sends the message itself when you pause.
+  // The standalone version (its own web address) listens with the real microphone instead.
+  const isMac = /Mac/.test(navigator.platform) && !/iPhone|iPad/.test(navigator.userAgent) && !(navigator.maxTouchPoints > 1);
+  const inClaude = Boolean(window.claude?.use) && !window.claude.standalone;
+  let recognitionWorks = !inClaude && Boolean(Recognition) && local.get("recognition", true);
+  let dictation = null, sendTimer = null, dictationTimeout = null;
+
+  function listen() {
+    if (document.body.dataset.state === "speaking") { stopSpeaking(); return; }
+    if (dictation) { endDictation(); return; }
+    if (busy) return;
+    openVoice();
+  }
+
+  // One spoken question through the real microphone. Calls back with the words, or "" when nothing was heard.
+  let activeRec = null;
+  function recognizeOnce(onWords, done) {
+    let rec; try { rec = new Recognition(); } catch { recognitionWorks = false; done(""); return; }
+    rec.lang = "nb-NO"; rec.interimResults = true; rec.continuous = false;
+    let finalText = "";
+    rec.onresult = (ev) => { let interim = ""; for (let i = ev.resultIndex; i < ev.results.length; i++) { if (ev.results[i].isFinal) finalText += ev.results[i][0].transcript; else interim += ev.results[i][0].transcript; } onWords(finalText + interim); };
+    rec.onerror = (ev) => { if (["not-allowed", "service-not-allowed", "audio-capture"].includes(ev.error)) { recognitionWorks = false; local.set("recognition", false); } };
+    rec.onend = () => { if (activeRec === rec) activeRec = null; done(finalText.trim()); };
+    stopWake(); activeRec = rec;
+    try { rec.start(); } catch { activeRec = null; recognitionWorks = false; done(""); }
+  }
+  function stopRecognition() { const r = activeRec; activeRec = null; try { r?.abort(); } catch { /* ignore */ } }
+
+  // "Hei iCONIC": while the page is open and idle, listen in the background for the wake words.
+  const WAKE = /\b(hei|hey|hallo|hi)\b[\s,.!]*(i[\s-]*kon\w*|ai[\s-]*kon\w*|ikon\w*|iconic\w*|aikonik\w*)/i;
+  let wakeRec = null, wakeTimer = null;
+  function wakeWanted() { return !inClaude && recognitionWorks && local.get("wake", true) && !document.hidden && !busy && !activeRec && !voiceOpen() && document.body.dataset.state === "idle"; }
+  function startWake() {
+    if (wakeRec || !wakeWanted()) return;
+    let rec; try { rec = new Recognition(); } catch { return; }
+    rec.lang = "nb-NO"; rec.interimResults = true; rec.continuous = true;
+    rec.onresult = (ev) => {
+      for (let i = ev.resultIndex; i < ev.results.length; i++) {
+        const heard = ev.results[i][0].transcript; const m = heard.match(WAKE);
+        if (!m) continue;
+        const rest = heard.slice(m.index + m[0].length).replace(/^[\s,.!?]+/, "");
+        if (!ev.results[i].isFinal && rest) continue; // let them finish the sentence
+        stopWake();
+        if (rest.split(/\s+/).length >= 2) { openVoice(true); $("#voice-heard").textContent = "«" + rest + "»"; ask(rest); }
+        else openVoice();
+        return;
+      }
+    };
+    rec.onerror = (ev) => { if (["not-allowed", "service-not-allowed", "audio-capture"].includes(ev.error)) { recognitionWorks = false; local.set("recognition", false); } };
+    rec.onend = () => { if (wakeRec === rec) wakeRec = null; };
+    wakeRec = rec;
+    try { rec.start(); } catch { wakeRec = null; }
+  }
+  function stopWake() { const r = wakeRec; wakeRec = null; try { r?.abort(); } catch { /* ignore */ } }
+  if (!inClaude && Recognition) {
+    wakeTimer = setInterval(() => { if (wakeWanted()) startWake(); else if (wakeRec && (busy || voiceOpen() || document.hidden)) stopWake(); }, 1500);
+    document.addEventListener("visibilitychange", () => { if (document.hidden) stopWake(); });
+  }
+
+  function startDictation() {
+    stopSpeaking();
+    showView("home");
+    dictation = { typed: false };
+    $("#dictate-key").textContent = isMac ? "Trykk Fn to ganger og snakk" : "Trykk 🎤 på tastaturet og snakk";
+    $("#dictate-help").textContent = isMac
+      ? "Jeg sender meldingen når du tar en pause. Skjer det ingenting når du trykker Fn to ganger? Slå på diktering i Systeminnstillinger → Tastatur → Diktering."
+      : "Jeg sender meldingen når du tar en pause. Ser du ikke 🎤? Slå på diktering i Innstillinger → Generelt → Tastatur → Aktiver diktering.";
+    $("#dictate").hidden = false;
+    setState("listening");
+    statusEl.textContent = "";
+    textEl.focus();
+    clearTimeout(dictationTimeout);
+    dictationTimeout = setTimeout(() => { if (dictation && !textEl.value.trim()) endDictation(); }, 45000);
+  }
+  function endDictation() {
+    dictation = null; clearTimeout(sendTimer); clearTimeout(dictationTimeout);
+    $("#dictate").hidden = true;
+    if (document.body.dataset.state === "listening") setState("idle");
+  }
+  // Dictated text arrives without key presses; typing by hand turns auto-send off.
+  textEl.addEventListener("keydown", (e) => { if (dictation && (e.key.length === 1 || e.key === "Backspace")) { dictation.typed = true; $("#dictate").hidden = true; setState("idle"); } });
+  textEl.addEventListener("input", () => {
+    if (!dictation || dictation.typed) return;
+    $("#dictate-key").textContent = "Jeg hører deg …";
+    clearTimeout(sendTimer);
+    sendTimer = setTimeout(() => {
+      if (!dictation || dictation.typed || !textEl.value.trim()) return;
+      endDictation();
+      $("#composer").requestSubmit();
+    }, 2200);
+  });
+  $("#dictate-cancel").addEventListener("click", endDictation);
+  document.addEventListener("keydown", (e) => { if (e.key === "Escape" && dictation) endDictation(); });
+
+  // ---------- Reminders ----------
+  const fired = new Set();
+  function checkReminders() {
+    const now = Date.now();
+    for (const t of coll("tasks")) {
+      if (t.status === "done" || !t.remind_at || t.reminded || fired.has(t.id)) continue;
+      const at = new Date(t.remind_at).getTime(); if (Number.isNaN(at) || at > now) continue;
+      fired.add(t.id); t.reminded = true;
+      const msg = "Påminnelse: " + t.title; addBot(msg); if (!busy) speak(msg); persist();
+    }
+  }
+  setInterval(checkReminders, 15000);
+
+  // ---------- Formatting ----------
+  const fmtDay = new Intl.DateTimeFormat("nb-NO", { weekday: "short", day: "numeric", month: "short" });
+  const fmtLongDay = new Intl.DateTimeFormat("nb-NO", { weekday: "long", day: "numeric", month: "long" });
+  const fmtTime = new Intl.DateTimeFormat("nb-NO", { hour: "2-digit", minute: "2-digit" });
+  const parse = (v) => new Date(v.length === 10 ? v + "T12:00" : v);
+  function when(v) {
+    if (!v) return ""; const d = parse(v); if (Number.isNaN(d.getTime())) return v;
+    const today = localDate(), tomorrow = localDate(new Date(Date.now() + 864e5));
+    const day = v.slice(0, 10) === today ? "i dag" : v.slice(0, 10) === tomorrow ? "i morgen" : fmtDay.format(d);
+    return v.length > 10 ? `${day} ${fmtTime.format(d)}` : day;
+  }
+  const cap = (t) => t.charAt(0).toUpperCase() + t.slice(1);
+
+  // ---------- Views ----------
+  function showView(name) {
+    document.querySelectorAll(".view").forEach((v) => { v.hidden = v.dataset.view !== name; });
+    document.querySelectorAll(".tab").forEach((t) => t.setAttribute("aria-selected", String(t.dataset.view === name)));
+    $("#dock").hidden = name !== "home";
+    if (name === "numbers") renderNumbers();
+    local.set("view", name);
+  }
+
+  function renderHome() {
+    const h = new Date().getHours();
+    const hello = h < 5 ? "God natt" : h < 10 ? "God morgen" : h < 17 ? "Hei" : "God kveld";
+    const name = profile().name;
+    $("#greeting").textContent = name ? `${hello}, ${name}` : hello;
+    $("#today-date").textContent = cap(fmtLongDay.format(new Date()));
+    const today = localDate();
+    const open = coll("tasks").filter((t) => t.status !== "done");
+    const row = (icon, cls, title, meta, onClick, action) => {
+      const r = el("div", "r" + (onClick ? " click" : "")); r.append(el("span", "ic " + cls, icon), el("span", "t", title));
+      if (meta) r.append(el("span", "m", meta));
+      if (action) { const b = el("button", "act", action.label); b.type = "button"; b.addEventListener("click", (e) => { e.stopPropagation(); action.run(); }); r.append(b); }
+      if (onClick) { r.tabIndex = 0; r.addEventListener("click", onClick); r.addEventListener("keydown", (e) => { if (e.key === "Enter") onClick(); }); }
+      return r;
+    };
+    const done = (t) => () => { t.status = "done"; t.completed_at = new Date().toISOString(); persist(); };
+
+    // Attention: only what needs action now
+    const att = [];
+    for (const t of sortTasks(open.filter((t) => t.due && t.due.slice(0, 10) < today))) att.push(row("!", "bad", t.title, "forfalt " + when(t.due), () => showView("tasks"), { label: "✓ Ferdig", run: done(t) }));
+    for (const x of coll("incidents").filter((x) => x.status !== "resolved").sort((a, b) => (b.severity === "høy") - (a.severity === "høy")))
+      att.push(row("⚠", x.severity === "høy" ? "bad" : "warn", x.title, [x.store, "avvik"].filter(Boolean).join(" · "), () => showView("tasks")));
+    try {
+      const T = Numbers.targets(); const key = Numbers.latest("week");
+      if (key) for (const e of Numbers.for("week", key).map((e) => Numbers.metrics(e))) {
+        for (const [k, label, tgt] of [["labor_pct", "lønn", T.labor], ["cogs_pct", "varekost", T.cogs], ["waste_pct", "svinn", T.waste]]) {
+          const st = costStatus(e[k], tgt);
+          if (st === "bad" || st === "warn") att.push(row("%", st, `${e.store}: ${label} ${pct(e[k])}`, `mål ${PCT.format(tgt)} % · ${periodLabel("week", key)}`, () => { ptype = "week"; pkeyAuto = true; showView("numbers"); }));
+        }
+      }
+    } catch { /* numbers not ready */ }
+    try {
+      for (const st of Stores.all()) {
+        const v = Stores.visits(st)[0];
+        if (v && v.score < 0.75 && v.date >= localDate(new Date(Date.now() - 14 * 864e5))) att.push(row("★", "bad", `${st}: besøksscore ${Math.round(v.score * 100)} %`, cap(fmtDay.format(parse(v.date))), () => openStore(st)));
+      }
+      const stale = Stores.all().filter((st) => { const v = Stores.visits(st)[0]; return Numbers.stores().includes(st) && (!v || v.date < localDate(new Date(Date.now() - 30 * 864e5))); });
+      if (stale.length) att.push(row("◷", "warn", `Ikke besøkt på 30 dager: ${stale.slice(0, 3).join(", ")}${stale.length > 3 ? " …" : ""}`, "", () => openVisit(stale[0])));
+    } catch { /* not ready */ }
+    for (const c of coll("checklists").filter((c) => c.items.some((i) => !i.done)))
+      att.push(row("☐", "info", c.title, `${c.items.filter((i) => i.done).length}/${c.items.length} ferdig`, () => showView("tasks")));
+    const attEl = $("#attention");
+    attEl.replaceChildren(...(att.length ? att.slice(0, 8) : [row("✓", "good", "Alt er i rute", "ingenting haster")]));
+    if (att.length > 8) attEl.append(row("…", "info", `${att.length - 8} til`, "", () => showView("tasks")));
+    $("#att-count").textContent = att.length ? String(att.length) : "";
+
+    // Agenda: today's events + tasks due today + reminders today
+    const items = [];
+    for (const e of coll("events").filter((e) => e.start.slice(0, 10) === today)) items.push({ at: e.start.length > 10 ? e.start.slice(11, 16) : "", el: (tm) => { const r = row("●", "info", e.title, e.location || "", () => showView("calendar")); r.querySelector(".ic").replaceWith(el("span", "tm", tm || "hele")); return r; } });
+    for (const t of open.filter((t) => (t.due && t.due.slice(0, 10) === today) || (t.remind_at && t.remind_at.slice(0, 10) === today && !t.reminded))) {
+      const at = (t.remind_at && t.remind_at.slice(0, 10) === today ? t.remind_at : t.due || "").slice(11, 16);
+      items.push({ at, el: (tm) => { const r = row("○", "info", t.title, t.remind_at && !t.reminded ? "påminnelse" : "frist", null, { label: "✓", run: done(t) }); r.querySelector(".ic").replaceWith(el("span", "tm", tm || "i dag")); return r; } });
+    }
+    items.sort((a, b) => (a.at || "99").localeCompare(b.at || "99"));
+    const ag = $("#agenda");
+    ag.replaceChildren(...(items.length ? items.map((i) => i.el(i.at)) : [row("–", "info", "Ingenting planlagt i dag", "trykk ⌘K for å legge til")]));
+  }
+  function nowLocalIso() { const d = new Date(); return `${localDate(d)}T${pad(d.getHours())}:${pad(d.getMinutes())}`; }
+
+  function emptyState(title, text) { const e = el("div", "empty"); e.append(el("strong", "", title), document.createTextNode(text)); return e; }
+  function section(title, cls = "", right = "") { const t = el("div", "section-title " + cls); t.append(el("span", "", title)); if (right) t.append(el("span", "", right)); return t; }
+  function delButton(label, onClick) {
+    const b = el("button", "icon-btn del"); b.type = "button"; b.setAttribute("aria-label", label);
+    b.innerHTML = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 7h14M10 7V5h4v2M7 7l1 12h8l1-12"/></svg>';
+    b.addEventListener("click", onClick); return b;
+  }
+
+  function renderTasks() {
+    const wrap = $("#tasks-list"); wrap.replaceChildren();
+    const today = localDate();
+    const open = sortTasks(coll("tasks").filter((t) => t.status !== "done"));
+    const count = $("#count-tasks"); count.hidden = !open.length; count.textContent = open.length;
+    if (!open.length) { wrap.append(section("Oppgaver")); const g = el("div", "group"); g.append(emptyState("Ingenting å gjøre", "Legg til over, eller si «minn meg på å ringe Lise i morgen klokka ni».")); wrap.append(g); }
+    const groups = [
+      ["Forfalt", "bad", open.filter((t) => t.due && t.due.slice(0, 10) < today)],
+      ["I dag", "", open.filter((t) => t.due && t.due.slice(0, 10) === today)],
+      ["Kommende", "", open.filter((t) => t.due && t.due.slice(0, 10) > today)],
+      ["Uten frist", "", open.filter((t) => !t.due)],
+    ];
+    for (const [title, cls, list] of groups) {
+      if (!list.length) continue;
+      wrap.append(section(title, cls, String(list.length)));
+      const g = el("div", "group");
+      for (const t of list) {
+        const row = el("div", "row");
+        const box = el("input", "check"); box.type = "checkbox"; box.id = "task-" + t.id; box.setAttribute("aria-label", "Ferdig: " + t.title);
+        box.addEventListener("change", () => { t.status = "done"; t.completed_at = new Date().toISOString(); setTimeout(persist, 250); });
+        const main = el("div", "main"); const title2 = el("div", "title", t.title);
+        if (t.priority === "kritisk" || t.priority === "høy") title2.append(el("span", "pill " + t.priority, t.priority));
+        main.append(title2);
+        const meta = [t.due && "Frist " + when(t.due), t.remind_at && !t.reminded && "Påminnelse " + when(t.remind_at), t.store].filter(Boolean).join(" · ");
+        if (meta) main.append(el("div", "meta", meta));
+        row.append(box, main, delButton("Slett " + t.title, () => { const l = coll("tasks"); const i = l.indexOf(t); if (i >= 0) l.splice(i, 1); persist(); }));
+        g.append(row);
+      }
+      wrap.append(g);
+    }
+    const lists = coll("checklists").filter((c) => c.items.some((x) => !x.done));
+    for (const c of lists) {
+      wrap.append(section(c.title, "", `${c.items.filter((x) => x.done).length}/${c.items.length}`));
+      const g = el("div", "group");
+      c.items.forEach((it, n) => {
+        const row = el("div", "row");
+        const box = el("input", "check"); box.type = "checkbox"; box.checked = it.done; box.id = `cl-${c.id}-${n}`; box.setAttribute("aria-label", it.text);
+        box.addEventListener("change", () => { it.done = box.checked; persist(); });
+        const main = el("div", "main"); main.append(el("div", "title", it.text));
+        row.append(box, main); g.append(row);
+      });
+      wrap.append(g);
+    }
+    const inc = coll("incidents").filter((x) => x.status !== "resolved");
+    if (inc.length) {
+      wrap.append(section("Åpne avvik", "bad", String(inc.length)));
+      const g = el("div", "group");
+      for (const x of inc) { const row = el("div", "row"); const main = el("div", "main"); main.append(el("div", "title", x.title)); main.append(el("div", "meta", [x.store, x.severity && "alvorlighet " + x.severity, x.date].filter(Boolean).join(" · "))); row.append(main); g.append(row); }
+      wrap.append(g);
+    }
+  }
+
+  function renderCalendar() {
+    const wrap = $("#calendar-list"); wrap.replaceChildren();
+    const today = localDate(), until = localDate(new Date(Date.now() + 30 * 864e5));
+    const events = coll("events").filter((e) => e.start.slice(0, 10) >= today && e.start.slice(0, 10) <= until).sort((a, b) => a.start.localeCompare(b.start));
+    if (!events.length) { wrap.append(section("Neste 30 dager")); const g = el("div", "group"); g.append(emptyState("Ingen avtaler", "Si «sett opp butikkbesøk på Aker Brygge tirsdag klokka ti».")); wrap.append(g); return; }
+    const byDay = new Map();
+    for (const e of events) { const d = e.start.slice(0, 10); if (!byDay.has(d)) byDay.set(d, []); byDay.get(d).push(e); }
+    for (const [d, list] of byDay) {
+      const label = d === today ? "I dag" : d === localDate(new Date(Date.now() + 864e5)) ? "I morgen" : cap(fmtLongDay.format(parse(d)));
+      wrap.append(section(label, d === today ? "" : ""));
+      const g = el("div", "group");
+      for (const e of list) {
+        const row = el("div", "row");
+        row.append(el("div", "time", e.start.length > 10 ? fmtTime.format(parse(e.start)) : "Hele"));
+        const main = el("div", "main"); main.append(el("div", "title", e.title));
+        const meta = [e.end && e.end.length > 10 && "til " + fmtTime.format(parse(e.end)), e.location, e.notes].filter(Boolean).join(" · ");
+        if (meta) main.append(el("div", "meta", meta));
+        row.append(main, delButton("Slett " + e.title, () => { const l = coll("events"); const i = l.indexOf(e); if (i >= 0) l.splice(i, 1); persist(); }));
+        g.append(row);
+      }
+      wrap.append(g);
+    }
+  }
+
+  function renderNotes() {
+    const wrap = $("#notes-list"); wrap.replaceChildren();
+    const notes = coll("notes");
+    const about = notes.filter((n) => n.category === "om meg");
+    const other = notes.filter((n) => n.category !== "om meg").slice().reverse();
+    const drafts = coll("drafts").slice().reverse();
+    const people = coll("people");
+    const noteRows = (list) => {
+      const g = el("div", "group");
+      for (const n of list) {
+        const row = el("div", "row"); const main = el("div", "main"); main.append(el("div", "", n.text));
+        if (n.category !== "om meg") main.append(el("div", "meta", cap(n.category || "generelt")));
+        row.append(main, delButton("Slett notat", () => { const i = notes.indexOf(n); if (i >= 0) notes.splice(i, 1); persist(); })); g.append(row);
+      }
+      return g;
+    };
+    wrap.append(section("Det jeg vet om deg"));
+    if (about.length) wrap.append(noteRows(about)); else { const g = el("div", "group"); g.append(emptyState("Ingenting ennå", "Si for eksempel «husk at jeg har ledermøte hver mandag klokka ni».")); wrap.append(g); }
+    if (drafts.length) {
+      wrap.append(section("Utkast", "", String(drafts.length)));
+      const g = el("div", "group");
+      for (const d of drafts.slice(0, 10)) { const row = el("div", "row"); const main = el("div", "main"); main.append(draftCard(d)); row.append(main, delButton("Slett utkast", () => { const l = coll("drafts"); const i = l.indexOf(d); if (i >= 0) l.splice(i, 1); persist(); })); g.append(row); }
+      wrap.append(g);
+    }
+    const files = coll("files").slice().reverse();
+    if (files.length) {
+      wrap.append(section("Filer", "", String(files.length)));
+      const g = el("div", "group");
+      for (const f of files) { const row = el("div", "row"); const main = el("div", "main"); main.append(fileCard(f)); row.append(main, delButton("Slett fil", () => { const l = coll("files"); const i = l.indexOf(f); if (i >= 0) l.splice(i, 1); persist(); })); g.append(row); }
+      wrap.append(g);
+    }
+    if (other.length) { wrap.append(section("Notater", "", String(other.length))); wrap.append(noteRows(other)); }
+    if (people.length) {
+      wrap.append(section("Personer", "", String(people.length)));
+      const g = el("div", "group");
+      for (const p of people.slice()) { const row = el("div", "row"); const main = el("div", "main"); main.append(el("div", "title", p.name)); const meta = [p.role, p.store, p.relation, p.phone, p.email].filter(Boolean).join(" · "); if (meta) main.append(el("div", "meta", meta)); if (p.notes) main.append(el("div", "meta", p.notes)); row.append(main); g.append(row); }
+      wrap.append(g);
+    }
+  }
+
+  function backupSection(wrap) {
+    wrap.append(section("Sikkerhetskopi"));
+    const g = el("div", "group"); const row = el("div", "row"); const main = el("div", "main");
+    main.append(el("div", "title", "Last ned alt iCONIC husker"));
+    main.append(el("div", "meta", "Oppgaver, kalender, notater, utkast og filer i én fil (.json)."));
+    row.append(main, downloadBtn(() => ({ filename: `iCONIC sikkerhetskopi ${localDate()}.json`, data: JSON.stringify(state, null, 2) })));
+    g.append(row); wrap.append(g);
+  }
+
+  function renderAll() { renderHome(); renderTasks(); renderNumbers(); renderCalendar(); renderNotes(); backupSection($("#notes-list")); }
+
+
+  // ---------- Numbers: stores, P&L and reports ----------
+  const NOK = new Intl.NumberFormat("nb-NO", { maximumFractionDigits: 0 });
+  const PCT = new Intl.NumberFormat("nb-NO", { maximumFractionDigits: 1, minimumFractionDigits: 1 });
+  const MONTHS = ["januar", "februar", "mars", "april", "mai", "juni", "juli", "august", "september", "oktober", "november", "desember"];
+  const FIELDS = ["revenue", "budget", "labor", "cogs", "waste", "other", "transactions"];
+  const esc = (t) => String(t ?? "").replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c]);
+  const kr = (v) => (v === null || v === undefined || !Number.isFinite(v) ? "–" : NOK.format(Math.round(v)) + " kr");
+  const pct = (v) => (v === null || v === undefined || !Number.isFinite(v) ? "–" : PCT.format(v * 100) + " %");
+  const num = (v) => { if (v === null || v === undefined || v === "") return null; const n = Number(String(v).replace(/\s|kr|NOK/gi, "").replace(/\.(?=\d{3}(\D|$))/g, "").replace(",", ".")); return Number.isFinite(n) ? n : null; };
+
+  function isoWeek(d) {
+    const t = new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()));
+    const day = t.getUTCDay() || 7; t.setUTCDate(t.getUTCDate() + 4 - day);
+    const y = t.getUTCFullYear(); const w = Math.ceil(((t - Date.UTC(y, 0, 1)) / 864e5 + 1) / 7);
+    return `${y}-W${pad(w)}`;
+  }
+  function weekMonday(key) {
+    const [y, w] = key.split("-W").map(Number);
+    const jan4 = new Date(Date.UTC(y, 0, 4)); const day = jan4.getUTCDay() || 7;
+    const mon = new Date(jan4); mon.setUTCDate(jan4.getUTCDate() - day + 1 + (w - 1) * 7); return mon;
+  }
+  function normPeriod(type, p) {
+    p = String(p || "").trim();
+    if (type === "week") { const m = p.match(/^(\d{4})-?W?(\d{1,2})$/i); return m ? `${m[1]}-W${pad(Number(m[2]))}` : null; }
+    const m = p.match(/^(\d{4})-(\d{1,2})$/); return m ? `${m[1]}-${pad(Number(m[2]))}` : null;
+  }
+  function shiftPeriod(type, key, n) {
+    if (type === "week") { const d = weekMonday(key); d.setUTCDate(d.getUTCDate() + 7 * n); return isoWeek(new Date(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate())); }
+    const [y, m] = key.split("-").map(Number); const d = new Date(y, m - 1 + n, 1); return `${d.getFullYear()}-${pad(d.getMonth() + 1)}`;
+  }
+  function currentPeriod(type) { const d = new Date(); return type === "week" ? isoWeek(d) : `${d.getFullYear()}-${pad(d.getMonth() + 1)}`; }
+  function periodLabel(type, key) {
+    if (type === "week") { const [y, w] = key.split("-W"); return `Uke ${Number(w)}, ${y}`; }
+    const [y, m] = key.split("-"); return `${cap(MONTHS[Number(m) - 1])} ${y}`;
+  }
+
+  const Numbers = {
+    targets() { const t = profile().targets || {}; return { labor: num(t.labor) ?? 28, cogs: num(t.cogs) ?? 30, waste: num(t.waste) ?? 2 }; },
+    list() { return coll("financials"); },
+    stores() { return [...new Set(this.list().map((e) => e.store))].sort((a, b) => a.localeCompare(b, "nb")); },
+    metrics(e) {
+      const r = e.revenue;
+      const m = { ...e };
+      const share = (v) => (Number.isFinite(v) && r > 0 ? v / r : null);
+      m.labor_pct = share(e.labor); m.cogs_pct = share(e.cogs); m.waste_pct = share(e.waste);
+      m.budget_diff = Number.isFinite(e.budget) && e.budget > 0 && Number.isFinite(r) ? (r - e.budget) / e.budget : null;
+      const hasCosts = [e.labor, e.cogs, e.other].some(Number.isFinite);
+      m.result = hasCosts && Number.isFinite(r) ? r - (e.cogs || 0) - (e.labor || 0) - (e.other || 0) : null;
+      m.result_pct = share(m.result);
+      m.avg_ticket = Number.isFinite(r) && e.transactions > 0 ? r / e.transactions : null;
+      return m;
+    },
+    total(list) {
+      const t = { store: "Totalt" };
+      for (const f of FIELDS) { const vals = list.map((e) => e[f]).filter(Number.isFinite); t[f] = vals.length ? vals.reduce((a, b) => a + b, 0) : null; }
+      return this.metrics(t);
+    },
+    for(type, key) { return this.list().filter((e) => e.period_type === type && e.period === key).sort((a, b) => a.store.localeCompare(b.store, "nb")); },
+    latest(type) { const keys = this.list().filter((e) => e.period_type === type).map((e) => e.period).sort(); return keys[keys.length - 1] || null; },
+    clean(raw) {
+      const type = raw.period_type === "month" ? "month" : "week";
+      const period = normPeriod(type, raw.period); const store = str(raw.store)?.trim();
+      if (!period || !store) return null;
+      const e = { store, period_type: type, period };
+      for (const f of FIELDS) { const v = num(raw[f]); if (v !== null) e[f] = v; }
+      return Number.isFinite(e.revenue) || [e.labor, e.cogs].some(Number.isFinite) ? e : null;
+    },
+    upsertMany(rows) {
+      let n = 0; const l = this.list();
+      for (const raw of rows) {
+        const e = this.clean(raw || {}); if (!e) continue;
+        const i = l.findIndex((x) => x.store.toLowerCase() === e.store.toLowerCase() && x.period_type === e.period_type && x.period === e.period);
+        if (i >= 0) l[i] = { ...l[i], ...e, updated_at: new Date().toISOString() }; else l.push({ id: newId(), created_at: new Date().toISOString(), ...e });
+        n++;
+      }
+      if (l.length > 2000) l.splice(0, l.length - 2000);
+      if (n) persist();
+      return n;
+    },
+    query({ period_type, period, store, history }) {
+      const type = period_type === "month" ? "month" : "week";
+      const key = normPeriod(type, period) || this.latest(type);
+      if (!key) return { message: "Ingen tall registrert ennå for " + (type === "week" ? "uker" : "måneder"), targets_pct: this.targets() };
+      const span = Math.max(1, Math.min(12, Number(history) || 1));
+      const periods = [];
+      for (let k = 0; k < span; k++) {
+        const pk = shiftPeriod(type, key, -k);
+        const rows = this.for(type, pk).filter((e) => has(e.store, store)).map((e) => this.metrics(e));
+        if (rows.length) periods.push({ period: pk, label: periodLabel(type, pk), stores: rows, total: this.total(rows) });
+      }
+      return { period_type: type, targets_pct: this.targets(), periods };
+    },
+  };
+
+  // Status vs. target: good under target, warning within 1.5 points over, bad beyond.
+  function costStatus(share, targetPct) {
+    if (!Number.isFinite(share)) return "none";
+    const p = share * 100; return p <= targetPct ? "good" : p <= targetPct + 1.5 ? "warn" : "bad";
+  }
+  function budgetStatus(diff) { if (!Number.isFinite(diff)) return "none"; return diff >= 0 ? "good" : diff >= -0.05 ? "warn" : "bad"; }
+  const STATUS_TEXT = { good: "✓ I rute", warn: "! Følg med", bad: "✕ Over mål", none: "Ingen data" };
+  const FLAG = { good: "✓", warn: "!", bad: "✕", none: "" };
+
+  let ptype = local.get("ptype", "week");
+  let pkey = null;
+  let pkeyAuto = true; // follow the latest period with data until the viewer picks one
+
+  function chip(status, text) { const c = el("span", "status-chip " + status, text || STATUS_TEXT[status]); return c; }
+  function kpiCard(label, value, detail, status, statusText) {
+    const k = el("div", "kpi"); k.append(el("span", "label", label), el("span", "value", value));
+    if (detail) k.append(el("span", "detail", detail));
+    if (status) k.append(chip(status, statusText));
+    return k;
+  }
+
+  function renderNumbers() {
+    const body = $("#numbers-body"); if (!body) return;
+    if (pkeyAuto || !pkey) pkey = Numbers.latest(ptype) || currentPeriod(ptype);
+    document.querySelectorAll("[data-ptype]").forEach((b) => b.setAttribute("aria-pressed", String(b.dataset.ptype === ptype)));
+    $("#period-label").textContent = periodLabel(ptype, pkey);
+    $("#store-list").replaceChildren(...Numbers.stores().map((n) => new Option(n)));
+    body.replaceChildren();
+    const T = Numbers.targets();
+    const rows = Numbers.for(ptype, pkey).map((e) => Numbers.metrics(e));
+    if (!Numbers.list().length) {
+      const p = el("div", "panel"); p.append(emptyState("Ingen tall ennå", "Trykk «Importer P&L» for å laste opp Excel, CSV eller et skjermbilde – eller «Legg inn tall» for én butikk. Du kan også si det til iCONIC: «omsetningen på Karl Johan uke 43 var 210 000, lønn 58 000»."));
+      body.append(p); return;
+    }
+    if (!rows.length) {
+      const p = el("div", "panel"); p.append(emptyState("Ingen tall for " + periodLabel(ptype, pkey).toLowerCase(), "Bla med pilene, eller legg inn tall for denne perioden.")); body.append(p);
+    } else {
+      const tot = Numbers.total(rows);
+      const prevRows = Numbers.for(ptype, shiftPeriod(ptype, pkey, -1)).map((e) => Numbers.metrics(e));
+      const prev = prevRows.length ? Numbers.total(prevRows) : null;
+      const change = prev && prev.revenue > 0 && Number.isFinite(tot.revenue) ? (tot.revenue - prev.revenue) / prev.revenue : null;
+      const k = el("div", "kpis");
+      k.append(kpiCard("Omsetning", kr(tot.revenue), [Number.isFinite(tot.budget) ? "Budsjett " + kr(tot.budget) : null, Number.isFinite(change) ? (change >= 0 ? "+" : "") + pct(change) + " fra forrige" : null].filter(Boolean).join(" · "),
+        budgetStatus(tot.budget_diff), Number.isFinite(tot.budget_diff) ? `${FLAG[budgetStatus(tot.budget_diff)]} ${tot.budget_diff >= 0 ? "+" : ""}${pct(tot.budget_diff)} mot budsjett` : "Mangler budsjett"));
+      k.append(kpiCard("Lønn", pct(tot.labor_pct), "Mål maks " + PCT.format(T.labor) + " % · " + kr(tot.labor), costStatus(tot.labor_pct, T.labor)));
+      k.append(kpiCard("Varekost", pct(tot.cogs_pct), "Mål maks " + PCT.format(T.cogs) + " % · " + kr(tot.cogs), costStatus(tot.cogs_pct, T.cogs)));
+      k.append(kpiCard("Resultat", kr(tot.result), Number.isFinite(tot.result_pct) ? pct(tot.result_pct) + " av omsetning" : "Legg inn kostnader for å se resultat",
+        Number.isFinite(tot.result) ? (tot.result >= 0 ? "good" : "bad") : "none", Number.isFinite(tot.result) ? (tot.result >= 0 ? "✓ Overskudd" : "✕ Underskudd") : "Ingen data"));
+      body.append(k);
+
+      // Store table
+      const panel = el("div", "panel"); panel.append(el("h3", "", "Butikkene"), el("p", "sub", "Trykk på en butikk for å se alt om den."));
+      const wrap = el("div", "table-wrap"); const table = el("table", "num");
+      table.innerHTML = "<thead><tr><th>Butikk</th><th>Omsetning</th><th>Mot budsjett</th><th>Lønn</th><th>Varekost</th><th>Svinn</th><th>Resultat</th><th>Snittkjøp</th></tr></thead>";
+      const tb = el("tbody");
+      const cell = (text, status) => { const td = el("td", "", text); if (status && status !== "none") td.append(el("span", "cell-flag " + status, FLAG[status])); return td; };
+      for (const r of rows) {
+        const tr = el("tr", "store"); tr.tabIndex = 0;
+        tr.append(cell(r.store), cell(kr(r.revenue)), cell(Number.isFinite(r.budget_diff) ? (r.budget_diff >= 0 ? "+" : "") + pct(r.budget_diff) : "–", budgetStatus(r.budget_diff)),
+          cell(pct(r.labor_pct), costStatus(r.labor_pct, T.labor)), cell(pct(r.cogs_pct), costStatus(r.cogs_pct, T.cogs)), cell(pct(r.waste_pct), costStatus(r.waste_pct, T.waste)),
+          cell(kr(r.result)), cell(r.avg_ticket ? kr(r.avg_ticket) : "–"));
+        const open = () => openStore(r.store); tr.addEventListener("click", open); tr.addEventListener("keydown", (e) => { if (e.key === "Enter") open(); });
+        tb.append(tr);
+      }
+      if (rows.length > 1) {
+        const tr = el("tr", "total");
+        tr.append(cell("Totalt"), cell(kr(tot.revenue)), cell(Number.isFinite(tot.budget_diff) ? (tot.budget_diff >= 0 ? "+" : "") + pct(tot.budget_diff) : "–"), cell(pct(tot.labor_pct)), cell(pct(tot.cogs_pct)), cell(pct(tot.waste_pct)), cell(kr(tot.result)), cell(tot.avg_ticket ? kr(tot.avg_ticket) : "–"));
+        tb.append(tr);
+      }
+      table.append(tb); wrap.append(table); panel.append(wrap); body.append(panel);
+    }
+
+    // Trend chart: revenue, all stores, last 8 periods
+    const series = [];
+    for (let k = 7; k >= 0; k--) { const key = shiftPeriod(ptype, pkey, -k); const rs = Numbers.for(ptype, key); series.push({ key, value: rs.length ? Numbers.total(rs).revenue : null }); }
+    if (series.some((x) => Number.isFinite(x.value))) {
+      const panel = el("div", "panel"); panel.append(el("h3", "", "Omsetning, alle butikker"), el("p", "sub", `Siste 8 ${ptype === "week" ? "uker" : "måneder"}`));
+      body.append(panel); panel.append(barChart(series, panel.clientWidth - 32));
+    }
+
+    // Analysis
+    const ap = el("div", "panel");
+    const head = el("div", ""); head.style.display = "flex"; head.style.justifyContent = "space-between"; head.style.alignItems = "center"; head.style.gap = "8px";
+    head.append(el("h3", "", "Analyse"));
+    const btn = el("button", "btn", rows.length ? "Analyser " + (ptype === "week" ? "uka" : "måneden") : "Analyser"); btn.type = "button"; btn.disabled = !rows.length;
+    btn.addEventListener("click", () => analyse(btn)); head.append(btn); ap.append(head);
+    const saved = (state.analyses || {})[ptype + ":" + pkey];
+    const text = el("div", "analysis" + (saved ? "" : " muted"), saved ? saved.text : "Trykk «Analyser», så går iCONIC gjennom tallene mot målene dine og forrige periode, og foreslår konkrete tiltak.");
+    text.id = "analysis-text"; ap.append(text);
+    body.append(ap);
+  }
+
+  function barChart(series, width) {
+    const box = el("div", "chart"); const W = Math.max(280, width || 640), H = 190, padL = 48, padB = 24, padT = 10;
+    const max = Math.max(...series.map((x) => x.value || 0)) || 1;
+    const nice = (() => { const p = Math.pow(10, Math.floor(Math.log10(max))); const m = max / p; return (m <= 1 ? 1 : m <= 2 ? 2 : m <= 5 ? 5 : 10) * p; })();
+    const step = (W - padL) / series.length, bw = Math.min(36, step * 0.55);
+    const y = (v) => H - padB - (v / nice) * (H - padB - padT);
+    let svg = `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="Omsetning per periode">`;
+    for (let i = 0; i <= 4; i++) {
+      const v = (nice / 4) * i, yy = y(v);
+      svg += `<line x1="${padL}" x2="${W}" y1="${yy}" y2="${yy}" stroke="var(--line)" stroke-width="1"/>`;
+      svg += `<text x="${padL - 8}" y="${yy + 4}" text-anchor="end" font-size="11" fill="var(--muted)">${NOK.format(v / 1000)}k</text>`;
+    }
+    series.forEach((p, i) => {
+      const x = padL + step * i + (step - bw) / 2;
+      const lbl = ptype === "week" ? "U" + Number(p.key.split("-W")[1]) : MONTHS[Number(p.key.split("-")[1]) - 1].slice(0, 3);
+      svg += `<text x="${x + bw / 2}" y="${H - 6}" text-anchor="middle" font-size="11" fill="var(--muted)">${lbl}</text>`;
+      if (Number.isFinite(p.value) && p.value > 0) {
+        const top = y(p.value), h = H - padB - top, r = Math.min(4, h);
+        const current = p.key === pkey;
+        svg += `<path d="M${x},${H - padB} V${top + r} Q${x},${top} ${x + r},${top} H${x + bw - r} Q${x + bw},${top} ${x + bw},${top + r} V${H - padB} Z" fill="var(--fg)" opacity="${current ? 1 : 0.35}"/>`;
+      }
+      svg += `<rect data-i="${i}" x="${padL + step * i}" y="0" width="${step}" height="${H}" fill="transparent"/>`;
+    });
+    svg += "</svg>";
+    box.innerHTML = svg;
+    const tip = el("div", "tip"); tip.hidden = true; box.append(tip);
+    box.querySelectorAll("rect[data-i]").forEach((r) => {
+      const show = () => {
+        const p = series[Number(r.dataset.i)]; const bb = box.getBoundingClientRect(); const rb = r.getBoundingClientRect();
+        tip.textContent = `${periodLabel(ptype, p.key)}: ${Number.isFinite(p.value) ? kr(p.value) : "ingen data"}`;
+        tip.style.left = rb.left - bb.left + rb.width / 2 + "px"; tip.style.top = "40px"; tip.hidden = false;
+      };
+      r.addEventListener("mouseenter", show); r.addEventListener("touchstart", show, { passive: true });
+      r.addEventListener("mouseleave", () => { tip.hidden = true; });
+    });
+    return box;
+  }
+
+  // ----- Manual entry -----
+  function openNumbersForm(entry) {
+    const f = (id) => $("#nf-" + id);
+    f("store").value = entry?.store || ""; f("ptype").value = entry?.period_type || ptype; f("period").value = entry?.period || pkey || currentPeriod(ptype);
+    for (const k of FIELDS) f(k).value = Number.isFinite(entry?.[k]) ? String(entry[k]) : "";
+    f("delete").hidden = !entry; f("delete").onclick = () => {
+      const l = Numbers.list(); const i = l.findIndex((x) => x.id === entry.id); if (i >= 0) l.splice(i, 1); persist(); $("#numbers-dialog").close();
+    };
+    $("#numbers-dialog").showModal();
+  }
+  $("#nf-cancel").addEventListener("click", () => $("#numbers-dialog").close());
+  $("#numbers-form").addEventListener("submit", (e) => {
+    e.preventDefault();
+    const f = (id) => $("#nf-" + id).value;
+    const row = { store: f("store"), period_type: f("ptype"), period: f("period") }; for (const k of FIELDS) row[k] = f(k);
+    if (!Numbers.upsertMany([row])) { $("#nf-period").setCustomValidity("Skriv perioden som 2026-W43 (uke) eller 2026-10 (måned)"); $("#nf-period").reportValidity(); return; }
+    ptype = Numbers.clean(row).period_type; pkey = Numbers.clean(row).period; pkeyAuto = false; local.set("ptype", ptype);
+    $("#numbers-dialog").close(); renderNumbers();
+  });
+  $("#nf-period").addEventListener("input", () => $("#nf-period").setCustomValidity(""));
+
+  // ----- Import -----
+  let importRows = [];
+  let xlsxLoading = null;
+  function loadXlsx() {
+    if (window.XLSX) return Promise.resolve(window.XLSX);
+    return (xlsxLoading ||= new Promise((res, rej) => {
+      const sc = document.createElement("script"); sc.src = "https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js";
+      sc.onload = () => res(window.XLSX); sc.onerror = () => rej(new Error("Klarte ikke å laste Excel-leseren")); document.head.append(sc);
+    }));
+  }
+  async function fileToText(file) {
+    if (/\.(xlsx|xls)$/i.test(file.name)) {
+      const XLSX = await loadXlsx(); const wb = XLSX.read(await file.arrayBuffer(), { type: "array" });
+      return wb.SheetNames.map((n) => `### Ark: ${n}\n` + XLSX.utils.sheet_to_csv(wb.Sheets[n], { FS: ";" })).join("\n\n");
+    }
+    return await file.text();
+  }
+  function importPrompt(text) {
+    return `Du får en P&L, salgsrapport eller tabell med tall for kaffebutikker. Hent ut tallene per butikk og periode.
+Svar KUN med en JSON-liste av objekter med feltene:
+{"store": string, "period_type": "week" | "month", "period": "YYYY-Www" for uke eller "YYYY-MM" for måned, "revenue": tall, "budget": tall, "labor": tall, "cogs": tall, "waste": tall, "other": tall, "transactions": tall}
+Regler: beløp i hele kroner som rene tall (ingen mellomrom, kr eller %). revenue = omsetning/salg (eks. mva hvis begge finnes). budget = budsjettert omsetning. labor = lønnskostnad inkl. sosiale kostnader hvis oppgitt. cogs = varekost. waste = svinn. other = andre driftskostnader samlet. transactions = antall kunder/transaksjoner. Utelat felt som ikke finnes – ikke gjett eller regn ut tall som ikke står der. Hvis en total-linje for alle butikker finnes, ta den ikke med. Hvis perioden ikke står, bruk ${ptype === "week" ? "uke" : "måned"} ${pkey}. I dag er ${localDate()}.
+
+${text ? "Data:\n" + text.slice(0, 60000) : "Dataene står i bildet."}`;
+  }
+  function showPreview(rows) {
+    const box = $("#import-preview"); box.replaceChildren();
+    if (!rows.length) return;
+    const t = el("table", "num"); t.style.minWidth = "520px";
+    t.innerHTML = "<thead><tr><th>Butikk</th><th>Periode</th><th>Omsetning</th><th>Budsjett</th><th>Lønn</th><th>Varekost</th><th>Svinn</th></tr></thead>";
+    const tb = el("tbody");
+    for (const r of rows) { const tr = el("tr"); for (const v of [r.store, periodLabel(r.period_type, r.period), kr(r.revenue), kr(r.budget), kr(r.labor), kr(r.cogs), kr(r.waste)]) tr.append(el("td", "", v)); tb.append(tr); }
+    t.append(tb); box.append(t);
+  }
+  $("#btn-import").addEventListener("click", () => {
+    importRows = []; $("#import-preview").replaceChildren(); $("#import-status").textContent = ""; $("#import-save").hidden = true; $("#import-read").hidden = false;
+    $("#import-dialog").showModal();
+  });
+  $("#import-cancel").addEventListener("click", () => $("#import-dialog").close());
+  $("#import-read").addEventListener("click", async () => {
+    const status = $("#import-status");
+    if (!sample) { status.textContent = "iCONIC får ikke kontakt med Claude her. Åpne siden på claude.ai."; return; }
+    const file = $("#import-file").files[0]; const pasted = $("#import-text").value.trim();
+    if (!file && !pasted) { status.textContent = "Velg en fil eller lim inn tallene først."; return; }
+    const btn = $("#import-read"); btn.disabled = true; status.textContent = "Leser tallene …";
+    try {
+      let rows;
+      if (file && file.type.startsWith("image/")) {
+        const lim = await sample.limits().catch(() => null);
+        if (!lim?.images) throw { code: "images_unavailable" };
+        rows = await sample.json(importPrompt(pasted), { images: [file], modelTier: "default" });
+      } else {
+        const text = file ? await fileToText(file) : pasted;
+        rows = await sample.json(importPrompt(text + (file && pasted ? "\n\n" + pasted : "")), { modelTier: "default" });
+      }
+      importRows = (Array.isArray(rows) ? rows : []).map((r) => Numbers.clean(r || {})).filter(Boolean);
+      showPreview(importRows);
+      status.textContent = importRows.length ? `Fant ${importRows.length} rader. Sjekk at tallene stemmer, og trykk Lagre.` : "Fant ingen tall jeg kunne lese. Prøv å lime inn tabellen, eller last opp Excel-filen.";
+      $("#import-save").hidden = !importRows.length; $("#import-read").hidden = Boolean(importRows.length);
+    } catch (e) {
+      status.textContent = e?.code === "images_unavailable" ? "Bilder kan ikke leses i denne visningen. Last opp Excel/CSV eller lim inn tallene."
+        : e?.code === "invalid_json" ? "Klarte ikke å tolke tallene. Prøv å lime inn bare tabellen." : e?.message && !e.code ? e.message : friendlyError(e?.code);
+    } finally { btn.disabled = false; }
+  });
+  $("#import-save").addEventListener("click", () => {
+    const n = Numbers.upsertMany(importRows);
+    if (importRows[0]) { ptype = importRows[0].period_type; pkey = importRows[importRows.length - 1].period; pkeyAuto = false; local.set("ptype", ptype); }
+    $("#import-dialog").close(); $("#import-file").value = ""; $("#import-text").value = "";
+    renderNumbers(); showNotice(n ? `${n} rader med tall er lagret.` : "");
+    setTimeout(() => showNotice(""), 4000);
+  });
+
+  // ----- Analysis -----
+  async function analyse(btn) {
+    const out = $("#analysis-text");
+    if (!sample) { out.textContent = "iCONIC får ikke kontakt med Claude her."; return; }
+    const data = Numbers.query({ period_type: ptype, period: pkey, history: 6 });
+    btn.disabled = true; out.classList.add("muted"); out.textContent = "Analyserer tallene …";
+    const prompt = `Du er iCONIC, en erfaren økonomi- og driftsrådgiver for en Operations Manager i en kaffekjede (Espresso House i Norge). Analyser ${periodLabel(ptype, pkey).toLowerCase()} ut fra tallene under.
+Skriv på norsk bokmål, kort og konkret, i ren tekst uten markdown-tegn (ingen *, # eller tabeller). Bruk disse fire overskriftene på egne linjer: Oppsummering, Det som går bra, Det som krever oppmerksomhet, Tiltak denne ${ptype === "week" ? "uka" : "måneden"}.
+Under Oppsummering: 2–3 setninger med totaltallene. Under de to neste: 2–4 linjer som begynner med "– ", nevn butikk og tall. Under Tiltak: 3 nummererte, konkrete tiltak med hvem/hva/når. Sammenlign mot målene og forrige perioder. Regn nøyaktig; ikke dikt opp tall som ikke finnes, og si fra hvis viktige tall mangler.
+Brukerens mål (maks, i prosent av omsetning): ${JSON.stringify(data.targets_pct)}
+Tall (beløp i kroner, *_pct som andel 0–1):
+${JSON.stringify(data.periods).slice(0, 50000)}`;
+    try {
+      const { text } = await sample(prompt, { modelTier: "default", cache: false, onText: ({ text }) => { out.classList.remove("muted"); out.textContent = text; } });
+      state.analyses = state.analyses || {};
+      state.analyses[ptype + ":" + pkey] = { text: text.trim(), at: new Date().toISOString() };
+      persist();
+    } catch (e) { out.textContent = friendlyError(e?.code); }
+    finally { btn.disabled = false; }
+  }
+
+  // ----- Report -----
+  function buildReport() {
+    const rows = Numbers.for(ptype, pkey).map((e) => Numbers.metrics(e));
+    const T = Numbers.targets(); const tot = Numbers.total(rows);
+    const analysis = (state.analyses || {})[ptype + ":" + pkey]?.text;
+    const name = profile().name;
+    const tr = (r, bold) => `<tr${bold ? ' class="t"' : ""}><td>${esc(r.store)}</td><td>${kr(r.revenue)}</td><td>${kr(r.budget)}</td><td>${Number.isFinite(r.budget_diff) ? (r.budget_diff >= 0 ? "+" : "") + pct(r.budget_diff) : "–"}</td><td>${pct(r.labor_pct)} ${FLAG[costStatus(r.labor_pct, T.labor)]}</td><td>${pct(r.cogs_pct)} ${FLAG[costStatus(r.cogs_pct, T.cogs)]}</td><td>${pct(r.waste_pct)} ${FLAG[costStatus(r.waste_pct, T.waste)]}</td><td>${kr(r.result)}</td></tr>`;
+    const analysisHtml = analysis ? analysis.split(/\n+/).map((l) => /^(Oppsummering|Det som går bra|Det som krever oppmerksomhet|Tiltak)/.test(l.trim()) ? `<h2>${esc(l.trim())}</h2>` : `<p>${esc(l)}</p>`).join("") : "<p><em>Ingen analyse ennå – trykk «Analyser» i iCONIC før du lager rapporten for å få kommentarer og tiltak.</em></p>";
+    return `<!doctype html><html lang="nb"><head><meta charset="utf-8"><title>Rapport ${esc(periodLabel(ptype, pkey))}</title>
+<style>body{font-family:-apple-system,"Segoe UI",Roboto,sans-serif;color:#111318;max-width:900px;margin:40px auto;padding:0 24px;line-height:1.55}h1{font-size:30px;letter-spacing:-.02em;margin:0}h2{font-size:17px;margin:28px 0 8px}.muted{color:#686d7d}.kpis{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin:24px 0}.kpi{border:1px solid #e2e5ec;border-radius:14px;padding:14px}.kpi b{display:block;font-size:22px;letter-spacing:-.01em}.kpi span{font-size:12px;text-transform:uppercase;letter-spacing:.06em;color:#686d7d}table{width:100%;border-collapse:collapse;font-variant-numeric:tabular-nums;font-size:14px}th,td{padding:8px;border-bottom:1px solid #e2e5ec;text-align:right;white-space:nowrap}th:first-child,td:first-child{text-align:left}th{font-size:11px;text-transform:uppercase;letter-spacing:.05em;color:#686d7d;font-weight:600}tr.t td{font-weight:700}@media print{body{margin:0}}</style></head><body>
+<div class="muted">iCONIC · ${ptype === "week" ? "Ukesrapport" : "Månedsrapport"}${name ? " · " + esc(name) : ""}</div>
+<h1>${esc(periodLabel(ptype, pkey))}</h1>
+<div class="kpis"><div class="kpi"><span>Omsetning</span><b>${kr(tot.revenue)}</b>${Number.isFinite(tot.budget_diff) ? (tot.budget_diff >= 0 ? "+" : "") + pct(tot.budget_diff) + " mot budsjett" : ""}</div><div class="kpi"><span>Lønn</span><b>${pct(tot.labor_pct)}</b>mål maks ${PCT.format(T.labor)} %</div><div class="kpi"><span>Varekost</span><b>${pct(tot.cogs_pct)}</b>mål maks ${PCT.format(T.cogs)} %</div><div class="kpi"><span>Resultat</span><b>${kr(tot.result)}</b>${pct(tot.result_pct)} av omsetning</div></div>
+<h2>Butikkene</h2>
+<table><thead><tr><th>Butikk</th><th>Omsetning</th><th>Budsjett</th><th>Mot budsjett</th><th>Lønn</th><th>Varekost</th><th>Svinn</th><th>Resultat</th></tr></thead><tbody>${rows.map((r) => tr(r)).join("")}${rows.length > 1 ? tr(tot, true) : ""}</tbody></table>
+<p class="muted" style="font-size:12px">✓ innenfor mål · ! inntil 1,5 prosentpoeng over · ✕ mer enn 1,5 prosentpoeng over. Resultat = omsetning − varekost − lønn − andre kostnader.</p>
+${analysisHtml}
+<p class="muted" style="font-size:12px;margin-top:40px">Laget av iCONIC ${new Date().toLocaleString("nb-NO")}. Tallene er slik de ble registrert eller importert – kontroller mot regnskapet før du deler videre.</p>
+</body></html>`;
+  }
+  $("#btn-report").addEventListener("click", (e) => {
+    if (!Numbers.for(ptype, pkey).length) { const b = e.currentTarget; b.textContent = "Ingen tall i perioden"; setTimeout(() => { b.textContent = "Lag rapport"; }, 2500); return; }
+    saveFile(() => ({ filename: `iCONIC ${ptype === "week" ? "ukesrapport" : "månedsrapport"} ${periodLabel(ptype, pkey).replace(",", "")}.html`, data: buildReport() }), e.currentTarget);
+  });
+
+  // ----- Toolbar -----
+  document.querySelectorAll("[data-ptype]").forEach((b) => b.addEventListener("click", () => {
+    if (ptype === b.dataset.ptype) return;
+    ptype = b.dataset.ptype; local.set("ptype", ptype); pkeyAuto = true; renderNumbers();
+  }));
+  $("#period-prev").addEventListener("click", () => { pkeyAuto = false; pkey = shiftPeriod(ptype, pkey, -1); renderNumbers(); });
+  $("#period-next").addEventListener("click", () => { pkeyAuto = false; pkey = shiftPeriod(ptype, pkey, 1); renderNumbers(); });
+  let resizeTimer = null;
+  window.addEventListener("resize", () => { clearTimeout(resizeTimer); resizeTimer = setTimeout(() => { if (!$("#view-numbers").hidden) renderNumbers(); }, 150); });
+  $("#btn-add-numbers").addEventListener("click", () => openNumbersForm(null));
+
+  // ---------- Settings ----------
+  function populateVoices() {
+    const sel = $("#opt-voice"); const v = synth?.getVoices() ?? [];
+    const nb = v.filter((x) => /^(nb|no|nn)(-|_|$)/i.test(x.lang)); const list = (nb.length ? nb : v).slice().sort((a, b) => voiceScore(b) - voiceScore(a)); const cur = pickVoice();
+    sel.replaceChildren(...list.map((x) => { const o = new Option(`${x.name}${voiceScore(x) >= 30 ? " ★ naturlig" : ""} (${x.lang})`, x.voiceURI); o.selected = cur?.voiceURI === x.voiceURI; return o; }));
+    if (!list.length) sel.append(new Option("Standardstemme", ""));
+    const hint = $("#voice-hint");
+    if (hint) hint.textContent = list.some((x) => voiceScore(x) >= 30)
+      ? "★ = naturlig stemme. Trykk på en stemme for å høre den."
+      : "Bare enkel stemme er installert. For en mer menneskelig stemme: Systeminnstillinger → Tilgjengelighet → Opplest innhold → Systemstemme → Administrer stemmer → Norsk → last ned Nora (Forbedret/Premium). Bruk gjerne Safari.";
+  }
+  function bindSettings() {
+    const sp = $("#opt-speak"); sp.checked = settings.speak;
+    sp.addEventListener("change", () => { settings.speak = sp.checked; local.set("speak", settings.speak); if (!settings.speak) stopSpeaking(); });
+    const rate = $("#opt-rate"); rate.value = settings.rate;
+    rate.addEventListener("change", () => { settings.rate = Number(rate.value); local.set("rate", settings.rate); });
+    $("#opt-voice").addEventListener("change", (e) => { settings.voice = e.target.value; local.set("voice", settings.voice); speak("Hei, det er meg."); });
+    const tiers = document.querySelectorAll("[data-tier]");
+    const paint = () => tiers.forEach((b) => b.setAttribute("aria-pressed", String(b.dataset.tier === settings.tier)));
+    tiers.forEach((b) => b.addEventListener("click", () => { settings.tier = b.dataset.tier; local.set("tier2", settings.tier); paint(); })); paint();
+    for (const k of ["labor", "cogs", "waste"]) {
+      $("#opt-t-" + k).addEventListener("change", (e) => { const v = num(e.target.value); const t = (profile().targets ||= {}); if (v === null) delete t[k]; else t[k] = v; persist(); });
+    }
+    const nameEl = $("#opt-name");
+    nameEl.addEventListener("change", () => { const v = nameEl.value.trim().slice(0, 40); if (v) profile().name = v; else delete profile().name; persist(); });
+    populateVoices(); try { synth?.addEventListener("voiceschanged", populateVoices); } catch { /* ignore */ }
+    $("#btn-settings").addEventListener("click", () => {
+      nameEl.value = profile().name || "";
+      const T = Numbers.targets(); for (const k of ["labor", "cogs", "waste"]) $("#opt-t-" + k).value = String(T[k]).replace(".", ",");
+      $("#settings").showModal();
+    });
+    $("#btn-new").addEventListener("click", () => { newConversation(); $("#settings").close(); showView("home"); });
+  }
+
+  // ---------- Fullscreen ----------
+  const fsBtn = $("#btn-fullscreen");
+  if (document.fullscreenEnabled || document.webkitFullscreenEnabled) {
+    fsBtn.hidden = false;
+    const paintFs = () => {
+      const on = Boolean(document.fullscreenElement || document.webkitFullscreenElement);
+      $("#fs-icon").setAttribute("d", on ? "M9 4v5H4M15 4v5h5M9 20v-5H4M15 20v-5h5" : "M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5");
+      fsBtn.setAttribute("aria-label", on ? "Avslutt fullskjerm" : "Fullskjerm"); fsBtn.title = fsBtn.getAttribute("aria-label");
+    };
+    fsBtn.addEventListener("click", async () => {
+      try {
+        if (document.fullscreenElement || document.webkitFullscreenElement) await (document.exitFullscreen || document.webkitExitFullscreen).call(document);
+        else await (document.documentElement.requestFullscreen || document.documentElement.webkitRequestFullscreen).call(document.documentElement);
+      } catch { fsBtn.hidden = true; }
+    });
+    document.addEventListener("fullscreenchange", paintFs);
+    document.addEventListener("webkitfullscreenchange", paintFs);
+  }
+
+
+  // ---------- Quick capture (instant, no AI) ----------
+  const WEEKDAYS = ["søndag", "mandag", "tirsdag", "onsdag", "torsdag", "fredag", "lørdag"];
+  function parseWhen(text) {
+    let t = " " + text + " ", date = null, time = null;
+    const today = new Date(); today.setHours(12, 0, 0, 0);
+    const take = (re, fn) => { const m = t.match(re); if (m) { fn(m); t = t.replace(m[0], " "); } };
+    take(/\s(i\s*overmorgen)\s/i, () => { date = new Date(today.getTime() + 2 * 864e5); });
+    take(/\s(i\s*morgen)\s/i, () => { date = new Date(today.getTime() + 864e5); });
+    take(/\s(i\s*dag|i\s*kveld)\s/i, (m) => { date = new Date(today); if (/kveld/i.test(m[1]) && !time) time = "18:00"; });
+    take(/\s(?:på\s+|neste\s+)?(mandag|tirsdag|onsdag|torsdag|fredag|lørdag|søndag)\s/i, (m) => {
+      const target = WEEKDAYS.indexOf(m[1].toLowerCase()); let diff = (target - today.getDay() + 7) % 7; if (diff === 0) diff = 7;
+      date = new Date(today.getTime() + diff * 864e5);
+    });
+    take(/\s(?:den\s+)?(\d{1,2})[./](\d{1,2})(?:[./](\d{2,4}))?\s/, (m) => {
+      const y = m[3] ? (m[3].length === 2 ? 2000 + Number(m[3]) : Number(m[3])) : today.getFullYear();
+      date = new Date(y, Number(m[2]) - 1, Number(m[1]), 12); if (!m[3] && date < today) date.setFullYear(y + 1);
+    });
+    take(/\s(?:kl\.?\s*)(\d{1,2})(?:[:.](\d{2}))?\s/i, (m) => { time = `${pad(Number(m[1]))}:${m[2] || "00"}`; });
+    if (!time) take(/\s(\d{1,2})[:](\d{2})\s/, (m) => { time = `${pad(Number(m[1]))}:${m[2]}`; });
+    if (time && !date) { date = new Date(today); const [hh, mm] = time.split(":").map(Number); if (hh * 60 + mm < new Date().getHours() * 60 + new Date().getMinutes()) date = new Date(today.getTime() + 864e5); }
+    const title = t.replace(/\s+/g, " ").trim().replace(/^(minn meg på å|minn meg på|husk å|jeg må)\s+/i, "");
+    const d = date ? localDate(date) : null;
+    return { title: cap(title), due: d ? (time ? `${d}T${time}` : d) : undefined, remind_at: d && time ? `${d}T${time}` : undefined };
+  }
+  function quickTask(text) {
+    const p = parseWhen(text);
+    if (!p.title) return null;
+    const t = addTask({ title: p.title, due: p.due, remind_at: p.remind_at });
+    const msg = `Lagt til: ${t.title}${p.remind_at ? " – påminnelse " + when(p.remind_at) : p.due ? " – frist " + when(p.due) : ""}`;
+    toast(msg); return t;
+  }
+  function toast(text) {
+    const n = el("div", "msg bot"); const av = el("span", "avatar"); const body = el("div", "body"); body.append(el("div", "text", "✓ " + text)); n.append(av, body);
+    threadEl.append(n); scrollDown();
+  }
+
+  const TEMPLATES = {
+    "Butikkbesøk": ["Førsteinntrykk utvendig og skilting", "Renhold i kundeområde og toaletter", "Disk og montre fylt, priser og allergener merket", "Kaffekvalitet: smak, kalibrering og melk", "Ventetid og kø i rushet", "Bemanning og posisjoner mot trafikken", "Temperaturlogg og IK-Mat oppdatert", "Svinn registrert", "Uniform og hygiene", "Oppfølging fra forrige besøk", "Samtale med butikksjef: mål og tiltak"],
+    "Åpning": ["Alarm av og lys på", "Kaffemaskin på, skylling og kalibrering", "Kvern justert og smakstest gjort", "Temperaturer kontrollert og logget", "Montre fylt, datomerking sjekket", "Kasse og veksel klar", "Toaletter og lokale klart", "Dagens mål og pauser fordelt"],
+    "Stenging": ["Svinn registrert", "Kaffemaskin rengjort og backflush", "Kverner tømt og rengjort", "Kjøl og montre tømt eller dekket, temperatur logget", "Kasseoppgjør gjort", "Gulv og toaletter vasket", "Søppel tømt", "Alarm på og dører låst"],
+    "HMS-runde": ["Rømningsveier frie", "Brannslukker og førstehjelpsutstyr på plass", "Kjemikalier merket og datablader tilgjengelige", "Skader på utstyr meldt", "Våte gulv skiltet", "Avvik fra forrige runde lukket"],
+  };
+  function useTemplate(name) {
+    const items = TEMPLATES[name]; if (!items) return;
+    const c = { id: newId(), title: `${name} ${fmtDay.format(new Date())}`, items: items.map((text) => ({ text, done: false })) };
+    coll("checklists").push(c); persist(); showView("tasks"); toast(`Sjekkliste klar: ${c.title}`);
+  }
+
+
+  // ---------- Stores & store visits ----------
+  const scoreClass = (v) => (v >= 0.9 ? "good" : v >= 0.75 ? "warn" : "bad");
+  const Stores = {
+    all() {
+      const set = new Map();
+      const add = (n) => { const k = String(n || "").trim(); if (k && !set.has(k.toLowerCase())) set.set(k.toLowerCase(), k); };
+      Numbers.stores().forEach(add); coll("visits").forEach((v) => add(v.store)); coll("incidents").forEach((x) => add(x.store)); coll("tasks").forEach((t) => add(t.store));
+      return [...set.values()].sort((a, b) => a.localeCompare(b, "nb"));
+    },
+    match(name) { const n = name.toLowerCase(); return this.all().find((x) => x.toLowerCase() === n) || this.all().find((x) => x.toLowerCase().includes(n)) || name; },
+    visits(store) { return coll("visits").filter((v) => v.store.toLowerCase() === store.toLowerCase()).sort((a, b) => b.date.localeCompare(a.date)); },
+    overview(name) {
+      const store = this.match(name);
+      const lc = store.toLowerCase();
+      const fin = Numbers.list().filter((e) => e.store.toLowerCase() === lc).sort((a, b) => a.period.localeCompare(b.period)).slice(-8).map((e) => Numbers.metrics(e));
+      return {
+        store, targets_pct: Numbers.targets(), recent_numbers: fin,
+        visits: this.visits(store).slice(0, 5).map((v) => ({ date: v.date, score_pct: Math.round(v.score * 100), deviations: v.items.filter((i) => i.result === "avvik").map((i) => i.text + (i.comment ? ": " + i.comment : "")) })),
+        open_tasks: coll("tasks").filter((t) => t.status !== "done" && (t.store || "").toLowerCase() === lc),
+        open_incidents: coll("incidents").filter((x) => x.status !== "resolved" && (x.store || "").toLowerCase() === lc),
+      };
+    },
+  };
+
+  // ----- Visit flow -----
+  let visit = null;
+  function openVisit(store = "") {
+    visit = null;
+    $("#visit-title").textContent = "Butikkbesøk";
+    $("#visit-progress").textContent = "Velg butikk og mal";
+    $("#visit-score").hidden = true;
+    $("#visit-start").hidden = false; $("#visit-items").hidden = true; $("#visit-note-wrap").hidden = true;
+    $("#visit-store").value = store; $("#visit-note").value = "";
+    $("#visit-template").replaceChildren(...Object.keys(TEMPLATES).map((n) => new Option(n, n)));
+    $("#visit-next").textContent = "Start";
+    $("#store-list").replaceChildren(...Stores.all().map((n) => new Option(n)));
+    $("#visit-dialog").showModal();
+    if (!store) $("#visit-store").focus();
+  }
+  function visitScore(v) {
+    const ok = v.items.filter((i) => i.result === "ok").length, bad = v.items.filter((i) => i.result === "avvik").length;
+    return ok + bad ? ok / (ok + bad) : null;
+  }
+  function paintVisit() {
+    const answered = visit.items.filter((i) => i.result).length;
+    $("#visit-progress").textContent = `${visit.store} · ${answered} av ${visit.items.length} vurdert`;
+    const sc = visitScore(visit); const badge = $("#visit-score");
+    badge.hidden = sc === null; if (sc !== null) { badge.textContent = Math.round(sc * 100) + " %"; badge.className = "score-badge " + scoreClass(sc); }
+  }
+  function renderVisitItems() {
+    const ol = $("#visit-items"); ol.replaceChildren();
+    visit.items.forEach((it, n) => {
+      const li = el("li", "vi"); const top = el("div", "vi-top");
+      top.append(el("span", "vi-text", `${n + 1}. ${it.text}`));
+      const seg = el("span", "vi-seg");
+      const comment = el("input"); comment.type = "text"; comment.placeholder = "Hva er avviket? (blir en oppgave)"; comment.id = "vi-c-" + n; comment.value = it.comment || ""; comment.hidden = it.result !== "avvik";
+      comment.addEventListener("input", () => { it.comment = comment.value; });
+      for (const [r, label, aria] of [["ok", "✓", "OK"], ["avvik", "✕", "Avvik"], ["na", "–", "Ikke relevant"]]) {
+        const b = el("button", "", label); b.type = "button"; b.dataset.r = r; b.setAttribute("aria-label", aria); b.setAttribute("aria-pressed", String(it.result === r));
+        b.addEventListener("click", () => {
+          it.result = it.result === r ? null : r;
+          seg.querySelectorAll("button").forEach((x) => x.setAttribute("aria-pressed", String(x.dataset.r === it.result)));
+          comment.hidden = it.result !== "avvik"; if (it.result === "avvik") comment.focus();
+          paintVisit();
+        });
+        seg.append(b);
+      }
+      top.append(seg); li.append(top, comment); ol.append(li);
+    });
+  }
+  $("#visit-cancel").addEventListener("click", () => { visit = null; $("#visit-dialog").close(); });
+  $("#visit-form").addEventListener("submit", (e) => {
+    e.preventDefault();
+    if (!visit) {
+      const store = Stores.match($("#visit-store").value.trim()); if (!store) return;
+      const tpl = $("#visit-template").value;
+      visit = { id: newId(), store, template: tpl, date: localDate(), items: TEMPLATES[tpl].map((text) => ({ text, result: null, comment: "" })) };
+      $("#visit-title").textContent = `${tpl} – ${store}`;
+      $("#visit-start").hidden = true; $("#visit-items").hidden = false; $("#visit-note-wrap").hidden = false;
+      $("#visit-next").textContent = "Fullfør besøk";
+      renderVisitItems(); paintVisit(); return;
+    }
+    const sc = visitScore(visit);
+    if (sc === null) { $("#visit-progress").textContent = "Vurder minst ett punkt før du fullfører."; return; }
+    visit.score = sc; visit.note = $("#visit-note").value.trim(); visit.created_at = new Date().toISOString();
+    const due = localDate(new Date(Date.now() + 3 * 864e5));
+    visit.task_ids = visit.items.filter((i) => i.result === "avvik").map((i) => addTask({ title: `${visit.store}: ${i.text}${i.comment ? " – " + i.comment : ""}`, due, priority: "høy", store: visit.store, category: "butikkbesøk" }).id);
+    coll("visits").push(visit); persist();
+    const v = visit; visit = null; $("#visit-dialog").close();
+    toast(`Besøk ${v.store} lagret: ${Math.round(v.score * 100)} %${v.task_ids.length ? `, ${v.task_ids.length} avvik lagt inn som oppgaver` : ""}`);
+    openStore(v.store);
+  });
+
+  function visitReport(v) {
+    const rows = v.items.map((i, n) => `<tr><td>${n + 1}</td><td>${esc(i.text)}</td><td class="${i.result || ""}">${i.result === "ok" ? "✓ OK" : i.result === "avvik" ? "✕ Avvik" : i.result === "na" ? "– Ikke relevant" : "Ikke vurdert"}</td><td>${esc(i.comment || "")}</td></tr>`).join("");
+    return `<!doctype html><html lang="nb"><head><meta charset="utf-8"><title>${esc(v.template)} ${esc(v.store)} ${v.date}</title><style>body{font-family:-apple-system,"Segoe UI",Roboto,sans-serif;color:#111318;max-width:820px;margin:40px auto;padding:0 24px;line-height:1.5}h1{margin:0;font-size:28px;letter-spacing:-.02em}.muted{color:#686d7d}.score{display:inline-block;font-size:26px;font-weight:700;padding:4px 14px;border-radius:12px;background:#eef6f0;margin:16px 0}table{width:100%;border-collapse:collapse;font-size:14px}td,th{padding:8px;border-bottom:1px solid #e2e5ec;text-align:left;vertical-align:top}th{font-size:11px;text-transform:uppercase;letter-spacing:.05em;color:#686d7d}.ok{color:#23935a}.avvik{color:#d33;font-weight:600}</style></head><body>
+<div class="muted">iCONIC · ${esc(v.template)}${profile().name ? " · " + esc(profile().name) : ""}</div><h1>${esc(v.store)}</h1><div class="muted">${esc(cap(fmtLongDay.format(parse(v.date))))}</div>
+<div class="score">${Math.round(v.score * 100)} %</div>
+<table><thead><tr><th>#</th><th>Punkt</th><th>Resultat</th><th>Kommentar</th></tr></thead><tbody>${rows}</tbody></table>
+${v.note ? `<h2 style="font-size:17px;margin-top:28px">Oppsummering</h2><p>${esc(v.note)}</p>` : ""}
+<p class="muted" style="font-size:12px;margin-top:32px">Score = OK / (OK + avvik). Avvik er lagt inn som oppgaver med frist tre dager etter besøket.</p></body></html>`;
+  }
+
+  // ----- Store sheet -----
+  let sheetStore = null;
+  function openStore(name) {
+    const o = Stores.overview(name); sheetStore = o.store;
+    $("#ss-name").textContent = o.store;
+    const last = o.recent_numbers[o.recent_numbers.length - 1];
+    $("#ss-sub").textContent = last ? `Siste tall: ${periodLabel(last.period_type, last.period)}` : "Ingen tall registrert ennå";
+    const body = $("#ss-body"); body.replaceChildren();
+    const T = Numbers.targets();
+    if (last) {
+      const k = el("div", "ss-kpis");
+      const kp = (label, val, st) => { const d = el("div", "ss-kpi"); d.append(el("span", "", label), el("b", "", val)); if (st && st !== "none") d.append(chip(st)); return d; };
+      k.append(kp("Omsetning", kr(last.revenue), budgetStatus(last.budget_diff)), kp("Lønn", pct(last.labor_pct), costStatus(last.labor_pct, T.labor)), kp("Varekost", pct(last.cogs_pct), costStatus(last.cogs_pct, T.cogs)), kp("Svinn", pct(last.waste_pct), costStatus(last.waste_pct, T.waste)));
+      body.append(k);
+    }
+    const vs = Stores.visits(o.store);
+    body.append(el("div", "ss-h", "Butikkbesøk"));
+    const vrows = el("div", "rows");
+    if (!vs.length) vrows.append(el("div", "r ok", "Ingen besøk registrert ennå."));
+    for (const v of vs.slice(0, 6)) {
+      const r = el("div", "r"); const sc = el("span", "ic " + scoreClass(v.score), String(Math.round(v.score * 100)));
+      sc.style.width = "34px"; r.append(sc, el("span", "t", `${cap(fmtDay.format(parse(v.date)))} · ${v.template}`), el("span", "m", `${v.items.filter((i) => i.result === "avvik").length} avvik`));
+      r.append(downloadBtn(() => ({ filename: `iCONIC ${v.template} ${v.store} ${v.date}.html`, data: visitReport(v) }), "Rapport"));
+      r.lastChild.classList.add("act"); vrows.append(r);
+    }
+    body.append(vrows);
+    const tasks = o.open_tasks;
+    body.append(el("div", "ss-h", `Åpne oppgaver (${tasks.length})`));
+    const trows = el("div", "rows");
+    if (!tasks.length) trows.append(el("div", "r ok", "Ingen åpne oppgaver for butikken."));
+    for (const t of sortTasks(tasks).slice(0, 8)) {
+      const r = el("div", "r"); r.append(el("span", "ic " + (t.due && t.due.slice(0, 10) < localDate() ? "bad" : "info"), "○"), el("span", "t", t.title), el("span", "m", t.due ? when(t.due) : ""));
+      const b = el("button", "act", "✓"); b.type = "button"; b.addEventListener("click", () => { t.status = "done"; t.completed_at = new Date().toISOString(); persist(); openStore(o.store); }); r.append(b); trows.append(r);
+    }
+    body.append(trows);
+    if (o.open_incidents.length) {
+      body.append(el("div", "ss-h", "Åpne avvik"));
+      const irows = el("div", "rows");
+      for (const x of o.open_incidents) { const r = el("div", "r"); r.append(el("span", "ic " + (x.severity === "høy" ? "bad" : "warn"), "⚠"), el("span", "t", x.title), el("span", "m", x.date || "")); irows.append(r); }
+      body.append(irows);
+    }
+    const dlg = $("#store-sheet"); if (!dlg.open) dlg.showModal();
+  }
+  $("#ss-close").addEventListener("click", () => $("#store-sheet").close());
+  $("#ss-visit").addEventListener("click", () => { $("#store-sheet").close(); openVisit(sheetStore); setTimeout(() => $("#visit-form").requestSubmit(), 0); });
+  $("#ss-task").addEventListener("click", () => { $("#store-sheet").close(); openPalette(`+ ${sheetStore}: `); });
+  $("#ss-numbers").addEventListener("click", () => {
+    $("#store-sheet").close(); showView("numbers");
+    const e = Numbers.list().filter((x) => x.store === sheetStore).sort((a, b) => a.period.localeCompare(b.period)).pop();
+    openNumbersForm(e || { store: sheetStore });
+  });
+  $("#ss-ask").addEventListener("click", () => { $("#store-sheet").close(); ask(`Hvordan går det med ${sheetStore}? Hent alt om butikken og gi meg status, de viktigste avvikene og tre tiltak.`); });
+
+  // ---------- Command palette (⌘K) ----------
+  const palette = $("#palette"), palQ = $("#pal-q"), palList = $("#pal-list");
+  let palItems = [], palSel = 0;
+  function baseCommands() {
+    return [
+      { icon: "☀", label: "Dagens briefing", hint: "Spør iCONIC", run: () => ask("Gi meg dagens briefing") },
+      { icon: "+", label: "Ny oppgave …", hint: "skriv + ring Lise i morgen kl 9", keep: "+ " },
+      { icon: "✎", label: "Nytt notat …", hint: "skriv /notat …", keep: "/notat " },
+      { icon: "✓", label: "Start butikkbesøk", hint: "med score og avvik", run: () => openVisit() },
+      { icon: "📊", label: "Legg inn tall", hint: "Tall", run: () => { showView("numbers"); openNumbersForm(null); } },
+      { icon: "⇪", label: "Importer P&L", hint: "Excel, CSV eller skjermbilde", run: () => { showView("numbers"); $("#btn-import").click(); } },
+      { icon: "📄", label: "Lag ukesrapport", hint: "laster ned", run: () => { ptype = "week"; pkeyAuto = true; showView("numbers"); setTimeout(() => $("#btn-report").click(), 50); } },
+      { icon: "📄", label: "Lag månedsrapport", hint: "laster ned", run: () => { ptype = "month"; pkeyAuto = true; showView("numbers"); setTimeout(() => $("#btn-report").click(), 50); } },
+      { icon: "🔎", label: "Analyser tallene", hint: "Tall", run: () => { showView("numbers"); setTimeout(() => document.querySelector("#numbers-body .panel .btn:not([disabled])")?.click(), 50); } },
+      ...Object.keys(TEMPLATES).map((n) => ({ icon: "☐", label: `Sjekkliste: ${n}`, hint: "mal", run: () => useTemplate(n) })),
+      { icon: "✉", label: "Skriv en e-post …", hint: "Spør iCONIC", keep: "Skriv en e-post til " },
+      { icon: "⚖", label: "HR-spørsmål …", hint: "Spør iCONIC", keep: "HR: " },
+      { icon: "1", label: "Gå til I dag", hint: "", run: () => showView("home") },
+      { icon: "2", label: "Gå til Oppgaver", hint: "", run: () => showView("tasks") },
+      { icon: "3", label: "Gå til Tall", hint: "", run: () => showView("numbers") },
+      { icon: "4", label: "Gå til Kalender", hint: "", run: () => showView("calendar") },
+      { icon: "5", label: "Gå til Notater", hint: "", run: () => showView("notes") },
+      { icon: "🎙", label: "Snakk med iCONIC", hint: "samtalemodus", run: () => openVoice() },
+      { icon: "📎", label: "Legg ved bilde eller fil", hint: "Excel, CSV, skjermbilde", run: () => $("#attach-input").click() },
+      { icon: "↺", label: "Ny samtale", hint: "", run: () => newConversation() },
+      { icon: "⚙", label: "Innstillinger", hint: "", run: () => $("#btn-settings").click() },
+    ];
+  }
+  function buildPalette(q) {
+    const query = q.trim(); const lq = query.toLowerCase();
+    const items = [];
+    if (query.startsWith("+") || /^\/(o|oppgave)\s/i.test(query)) {
+      const text = query.replace(/^\+|^\/(o|oppgave)\s/i, "").trim(); const p = parseWhen(text);
+      if (p.title) items.push({ icon: "+", label: `Ny oppgave: ${p.title}`, hint: p.remind_at ? "påminnelse " + when(p.remind_at) : p.due ? "frist " + when(p.due) : "", run: () => quickTask(text) });
+    } else if (/^\/(notat|husk)\s/i.test(query)) {
+      const husk = /^\/husk/i.test(query); const text = query.replace(/^\/(notat|husk)\s/i, "").trim();
+      if (text) items.push({ icon: "✎", label: `${husk ? "Husk" : "Notat"}: ${text}`, hint: husk ? "om meg" : "", run: () => { coll("notes").push({ id: newId(), created_at: new Date().toISOString(), text, category: husk ? "om meg" : "generelt" }); persist(); toast(husk ? "Husket: " + text : "Notat lagret"); } });
+    } else {
+      const cmds = baseCommands().filter((c) => !lq || c.label.toLowerCase().includes(lq) || (c.hint || "").toLowerCase().includes(lq));
+      const words = lq.split(/\s+/).filter(Boolean);
+      const askItem = query ? { icon: "✦", label: `Spør iCONIC: ${query}`, hint: "↵", run: () => ask(query) } : null;
+      if (askItem && (words.length >= 3 || !cmds.length)) items.push(askItem);
+      if (cmds.length) { items.push({ sec: "Kommandoer" }); items.push(...cmds.slice(0, query ? 8 : 20)); }
+      if (query.length >= 2) {
+        const tasks = coll("tasks").filter((t) => t.status !== "done" && t.title.toLowerCase().includes(lq)).slice(0, 5);
+        if (tasks.length) { items.push({ sec: "Oppgaver" }); for (const t of tasks) items.push({ icon: "○", label: t.title, hint: "↵ marker ferdig", run: () => { t.status = "done"; t.completed_at = new Date().toISOString(); persist(); toast("Ferdig: " + t.title); } }); }
+        const notes = coll("notes").filter((n) => n.text.toLowerCase().includes(lq)).slice(0, 4);
+        if (notes.length) { items.push({ sec: "Notater" }); for (const n of notes) items.push({ icon: "✎", label: n.text, hint: n.category, run: () => showView("notes") }); }
+        const stores = Stores.all().filter((n) => n.toLowerCase().includes(lq)).slice(0, 4);
+        if (stores.length) { items.push({ sec: "Butikker" }); for (const n of stores) { items.push({ icon: "◆", label: n, hint: "åpne butikken", run: () => openStore(n) }); items.push({ icon: "✓", label: `Start besøk: ${n}`, hint: "", run: () => { openVisit(n); setTimeout(() => $("#visit-form").requestSubmit(), 0); } }); } }
+      }
+      if (askItem && words.length < 3 && cmds.length) items.push({ sec: "iCONIC" }, askItem);
+    }
+    palItems = items; palSel = items.findIndex((i) => !i.sec);
+    palList.replaceChildren(...items.map((it, idx) => {
+      if (it.sec) { const li = el("li", "sec", it.sec); li.setAttribute("role", "presentation"); return li; }
+      const li = el("li"); li.setAttribute("role", "option"); li.id = "pal-" + idx;
+      li.append(el("span", "pi", it.icon), el("span", "pl", it.label)); if (it.hint) li.append(el("span", "ph", it.hint));
+      li.addEventListener("mousemove", () => { if (palSel !== idx) { palSel = idx; paintSel(); } });
+      li.addEventListener("click", () => runPal(idx));
+      return li;
+    }));
+    paintSel();
+  }
+  function paintSel() {
+    palList.querySelectorAll("li[role=option]").forEach((li) => li.setAttribute("aria-selected", String(li.id === "pal-" + palSel)));
+    palList.querySelector(`#pal-${palSel}`)?.scrollIntoView({ block: "nearest" });
+    palQ.setAttribute("aria-activedescendant", palSel >= 0 ? "pal-" + palSel : "");
+  }
+  function runPal(idx) {
+    const it = palItems[idx]; if (!it || it.sec) return;
+    if (it.keep !== undefined) { palQ.value = it.keep; buildPalette(palQ.value); palQ.focus(); return; }
+    palette.close(); it.run();
+  }
+  function openPalette(prefill = "") {
+    if (palette.open) { palette.close(); return; }
+    palQ.value = prefill; buildPalette(prefill); palette.showModal(); palQ.focus();
+  }
+  palQ.addEventListener("input", () => buildPalette(palQ.value));
+  palQ.addEventListener("keydown", (e) => {
+    const opts = palItems.map((it, i) => (it.sec ? -1 : i)).filter((i) => i >= 0);
+    if (e.key === "ArrowDown" || e.key === "ArrowUp") {
+      e.preventDefault(); const pos = opts.indexOf(palSel); const next = e.key === "ArrowDown" ? opts[Math.min(opts.length - 1, pos + 1)] : opts[Math.max(0, pos - 1)];
+      if (next !== undefined) { palSel = next; paintSel(); }
+    } else if (e.key === "Enter") { e.preventDefault(); runPal(palSel); }
+  });
+  palette.addEventListener("click", (e) => { if (e.target === palette) palette.close(); });
+  $("#btn-palette").addEventListener("click", () => openPalette());
+  document.addEventListener("keydown", (e) => {
+    if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "k") { e.preventDefault(); openPalette(); return; }
+    const typing = /INPUT|TEXTAREA|SELECT/.test(document.activeElement?.tagName) || document.querySelector("dialog[open]");
+    if (typing || e.metaKey || e.ctrlKey || e.altKey) return;
+    if (e.key === "/") { e.preventDefault(); showView("home"); textEl.focus(); }
+    else if (["1", "2", "3", "4", "5"].includes(e.key)) showView(["home", "tasks", "numbers", "calendar", "notes"][Number(e.key) - 1]);
+    else if (e.key === "n") { e.preventDefault(); openPalette("+ "); }
+  });
+
+
+  // ---------- Voice mode (full screen, Siri-style) ----------
+  const voiceDlg = $("#voice"), voiceText = $("#voice-text");
+  let voiceTyped = false, voiceTimer = null;
+  function voiceOpen() { return voiceDlg.open; }
+  function voiceShow(text) { if (voiceOpen()) { $("#voice-answer").textContent = text; $("#voice-status").textContent = document.body.dataset.state === "thinking" ? "Tenker …" : ""; } }
+  function voiceHintText() {
+    if (recognitionWorks) return "Bare snakk – jeg svarer når du tar en pause. Trykk på kula for å stoppe.";
+    return isMac ? "Trykk <b>Fn</b> to ganger og snakk – jeg svarer når du tar en pause." : "Trykk <b>🎤</b> på tastaturet og snakk – jeg svarer når du tar en pause.";
+  }
+  function voiceListen() {
+    if (!voiceOpen()) return;
+    voiceTyped = false; voiceText.value = ""; clearTimeout(voiceTimer);
+    setState("listening");
+    $("#voice-status").textContent = "Jeg lytter …";
+    $("#voice-hint").innerHTML = voiceHintText();
+    if (recognitionWorks) {
+      stopRecognition();
+      recognizeOnce((words) => { if (voiceOpen()) { $("#voice-heard").textContent = words; $("#voice-status").textContent = "Jeg hører deg …"; } }, (words) => {
+        if (!voiceOpen() || busy) return;
+        if (words) { voiceText.value = words; voiceSend(); }
+        else if (recognitionWorks) { setState("idle"); $("#voice-status").textContent = "Trykk på kula og snakk."; }
+        else voiceListen(); // microphone refused: fall back to the keyboard's dictation
+      });
+      return;
+    }
+    voiceText.focus();
+  }
+  // Called when an answer is finished (spoken or not). Waits until ask() has fully settled, then listens again.
+  function voiceReady() {
+    if (!voiceOpen()) return;
+    setTimeout(() => { if (voiceOpen() && !busy && document.body.dataset.state !== "speaking") voiceListen(); }, 400);
+  }
+  function openVoice(quiet) {
+    stopSpeaking(); stopWake(); showView("home");
+    $("#voice-heard").textContent = ""; $("#voice-answer").textContent = "";
+    if (!voiceDlg.open) voiceDlg.showModal();
+    if (!quiet) voiceListen();
+  }
+  function closeVoice() { clearTimeout(voiceTimer); controller?.abort(); stopSpeaking(); stopRecognition(); if (voiceDlg.open) voiceDlg.close(); setState("idle"); }
+  function voiceSend() {
+    const v = voiceText.value.trim(); clearTimeout(voiceTimer);
+    if (!v) return;
+    voiceText.value = ""; $("#voice-heard").textContent = "«" + v + "»"; $("#voice-answer").textContent = "";
+    $("#voice-status").textContent = "Tenker …"; $("#voice-hint").textContent = "Trykk på kula for å avbryte.";
+    ask(v);
+  }
+  voiceText.addEventListener("keydown", (e) => {
+    if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); voiceSend(); return; }
+    if (e.key.length === 1 || e.key === "Backspace") voiceTyped = true;
+  });
+  voiceText.addEventListener("input", () => {
+    if (voiceTyped) return; // typing by hand: send with Enter
+    $("#voice-heard").textContent = voiceText.value;
+    $("#voice-status").textContent = "Jeg hører deg …";
+    clearTimeout(voiceTimer); voiceTimer = setTimeout(voiceSend, 2000);
+  });
+  $("#voice-form").addEventListener("submit", (e) => { e.preventDefault(); voiceSend(); });
+  $("#voice-close").addEventListener("click", closeVoice);
+  voiceDlg.addEventListener("cancel", (e) => { e.preventDefault(); closeVoice(); });
+  $("#voice-orb").addEventListener("click", () => {
+    const st = document.body.dataset.state;
+    if (st === "thinking") { controller?.abort(); voiceReady(); }
+    else if (st === "speaking") { stopSpeaking(); voiceListen(); }
+    else if (activeRec) { stopRecognition(); setState("idle"); $("#voice-status").textContent = "Trykk på kula og snakk."; }
+    else voiceListen();
+  });
+
+  // ---------- Attachments ----------
+  function renderAttachments() {
+    const box = $("#attachments"); box.replaceChildren();
+    box.hidden = !pendingFiles.length;
+    pendingFiles.forEach((f, i) => {
+      const a = el("span", "att"); a.append(el("span", "", (f.image ? "🖼 " : "📄 ") + f.name));
+      const x = el("button", "", "×"); x.type = "button"; x.setAttribute("aria-label", "Fjern " + f.name);
+      x.addEventListener("click", () => { pendingFiles.splice(i, 1); renderAttachments(); setSendMode(false); }); a.append(x); box.append(a);
+    });
+    if (!busy) sendBtn.disabled = !pendingFiles.length && !textEl.value.trim();
+  }
+  $("#attach").addEventListener("click", () => $("#attach-input").click());
+  $("#attach-input").addEventListener("change", async (e) => {
+    const lim = sample ? await sample.limits().catch(() => null) : null;
+    for (const file of [...e.target.files].slice(0, 5)) {
+      try {
+        if (file.type.startsWith("image/")) {
+          if (!lim?.images) { statusEl.textContent = "Bilder kan ikke sendes i denne visningen."; continue; }
+          pendingFiles.push({ name: file.name, image: true, blob: file });
+        } else {
+          const text = await fileToText(file);
+          pendingFiles.push({ name: file.name, image: false, text: text.slice(0, 60000) });
+        }
+      } catch { statusEl.textContent = "Klarte ikke å lese " + file.name; }
+    }
+    e.target.value = ""; renderAttachments(); textEl.focus();
+  });
+  textEl.addEventListener("paste", (e) => {
+    const imgs = [...(e.clipboardData?.files || [])].filter((f) => f.type.startsWith("image/"));
+    if (!imgs.length) return;
+    e.preventDefault();
+    for (const f of imgs.slice(0, 3)) pendingFiles.push({ name: f.name || "Skjermbilde.png", image: true, blob: f });
+    renderAttachments();
+  });
+  $("#big-orb").addEventListener("click", openVoice);
+  $("#btn-talk").addEventListener("click", openVoice);
+
+  // ---------- Events ----------
+  $("#orb").addEventListener("click", listen);
+  $("#wordmark").addEventListener("click", () => { showView("home"); listen(); });
+  $("#composer").addEventListener("submit", (e) => {
+    e.preventDefault();
+    if (busy) { controller?.abort(); return; }
+    const v = textEl.value.trim(); textEl.value = ""; autosize(); setSendMode(false);
+    if (!v && !pendingFiles.length) return;
+    if (v.startsWith("+") || /^\/(o|oppgave)\s/i.test(v)) { quickTask(v.replace(/^\+|^\/(o|oppgave)\s/i, "").trim()); return; }
+    if (/^\/(notat|husk)\s/i.test(v)) { const husk = /^\/husk/i.test(v); const text = v.replace(/^\/(notat|husk)\s/i, "").trim(); coll("notes").push({ id: newId(), created_at: new Date().toISOString(), text, category: husk ? "om meg" : "generelt" }); persist(); toast(husk ? "Husket: " + text : "Notat lagret"); return; }
+    if (/^\/rapport/i.test(v)) { ptype = /måned/i.test(v) ? "month" : "week"; pkeyAuto = true; showView("numbers"); setTimeout(() => $("#btn-report").click(), 50); return; }
+    ask(v);
+  });
+  textEl.addEventListener("keydown", (e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); $("#composer").requestSubmit(); } });
+  function autosize() { textEl.style.height = "auto"; textEl.style.height = Math.min(textEl.scrollHeight, 140) + "px"; }
+  textEl.addEventListener("input", () => { autosize(); if (!busy) setSendMode(false); });
+  $("#chips").addEventListener("click", (e) => {
+    const c = e.target.closest(".chip"); if (!c) return;
+    const cmd = c.dataset.cmd;
+    if (c.dataset.ask) ask(c.dataset.ask);
+    else if (cmd === "briefing") ask("Gi meg dagens briefing");
+    else if (cmd === "report") { ptype = "week"; pkeyAuto = true; showView("numbers"); setTimeout(() => $("#btn-report").click(), 50); }
+    else if (cmd === "import") { showView("numbers"); $("#btn-import").click(); }
+    else if (cmd === "visit") openVisit();
+    else if (cmd?.startsWith("tpl:")) useTemplate(cmd.slice(4));
+  });
+  document.querySelectorAll(".tab").forEach((t) => t.addEventListener("click", () => showView(t.dataset.view)));
+  document.querySelectorAll("[data-go]").forEach((c) => c.addEventListener("click", () => showView(c.dataset.go)));
+  $("#task-form").addEventListener("submit", (e) => {
+    e.preventDefault(); const inp = $("#task-input"); const v = inp.value.trim(); if (!v) return;
+    addTask({ title: v }); inp.value = "";
+  });
+
+  // ---------- Start ----------
+  bindSettings();
+  setState("idle");
+  for (const t of turns.slice(-6)) { if (t.role === "user") addUser(t.content); else addBot(t.content); }
+  homeView.scrollTop = 0;
+  renderAll();
+  showView(local.get("view", "home"));
+  setInterval(renderHome, 60000);
+
+  (async () => {
+    const claude = window.claude;
+    if (!claude?.use) { showNotice("Åpne iCONIC fra claude.ai for å bruke den."); return; }
+    const [smp, db, user, dl] = await Promise.all([claude.use("sample"), claude.use("db"), claude.use("user"), claude.use("downloads")]);
+    downloads = dl;
+    sample = smp;
+    if (sample) {
+      try { const lim = await sample.limits(); toolsAllowed = lim.tools ? Math.min(lim.tools.maxCount, TOOL_DEFS.length) : 0; } catch { toolsAllowed = 0; }
+      if (!toolsAllowed) showNotice("iCONIC kan snakke med deg her, men ikke legge inn oppgaver for deg i denne visningen.");
+    } else showNotice("Jeg får ikke kontakt med Claude i denne visningen. Åpne siden på claude.ai mens du er logget inn.");
+    const uid = user ? await user.id() : null;
+    if (db && uid) {
+      docRef = db.doc("data/users/" + uid + "/state");
+      docRef.onSnapshot((snap) => {
+        if (dirty || snap.metadata.hasPendingWrites) return;
+        state = snap.exists ? { ...EMPTY(), ...JSON.parse(JSON.stringify(snap.data())) } : EMPTY();
+        renderAll(); checkReminders();
+      }, () => showNotice("Lagringen er ikke tilgjengelig akkurat nå. Last inn siden på nytt."));
+    } else if (sample) showNotice("Lagring er ikke tilgjengelig i denne visningen, så det du legger inn huskes bare til du lukker siden.");
+  })();
+})();
+</script>
+
+</body>
+</html>
