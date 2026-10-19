@@ -439,6 +439,7 @@
   .preview { max-height: 260px; overflow: auto; margin-top: 10px; }
 
   /* ---------- Sheet ---------- */
+  .test-result { white-space: pre-line; font-size: 14px; background: var(--surface-2); border-radius: 12px; padding: 10px 12px; margin: 0 0 12px; }
   .sheet { border: 1px solid var(--line); border-radius: 24px; background: var(--surface); color: var(--fg); width: min(460px, calc(100% - 32px)); padding: 22px; box-shadow: var(--shadow); }
   .sheet::backdrop { background: rgba(0, 0, 0, 0.4); backdrop-filter: blur(6px); }
   .sheet h2 { margin: 0 0 6px; font-size: 22px; font-weight: 600; letter-spacing: -0.02em; }
@@ -457,6 +458,7 @@
   .seg button { border: 0; background: transparent; border-radius: 9px; padding: 7px; font-weight: 500; color: var(--muted); }
   .seg button[aria-pressed="true"] { background: var(--surface); color: var(--fg); box-shadow: var(--shadow); }
   .sheet-actions { display: flex; justify-content: space-between; gap: 8px; margin-top: 18px; }
+  #settings .sheet-actions { flex-wrap: wrap; justify-content: flex-end; }
 
   @media (min-width: 640px) { .glance { grid-template-columns: repeat(4, minmax(0, 1fr)); } }
 
@@ -748,7 +750,9 @@
       <label for="opt-rate">Talehastighet</label>
       <input id="opt-rate" type="range" min="0.8" max="1.4" step="0.05" value="1.05">
     </div>
+    <p id="test-result" class="test-result" role="status" hidden></p>
     <div class="sheet-actions">
+      <button type="button" id="btn-test" class="btn">Test lyd og mikrofon</button>
       <button type="button" id="btn-new" class="btn">Ny samtale</button>
       <button value="close" class="btn primary">Ferdig</button>
     </div>
@@ -1138,7 +1142,11 @@ Nå: ${WEEKDAY.format(new Date())} (dato ${localDate()}).
     } catch (e) {
       out.m.classList.remove("thinking");
       if (e?.code === "cancelled") { out.t.textContent = e.text || "Stoppet."; if (e.text) turns.push({ role: "assistant", content: e.text }); }
-      else { out.t.textContent = friendlyError(e?.code); out.m.classList.add("error"); turns.pop(); voiceShow(friendlyError(e?.code)); }
+      else {
+        // On its own web address, show the service's own reason too, so a wrong key or model is easy to spot.
+        const why = friendlyError(e?.code) + (window.claude?.standalone && e?.code === "unavailable" && e?.message ? " (" + String(e.message).slice(0, 160) + ")" : "");
+        out.t.textContent = why; out.m.classList.add("error"); turns.pop(); voiceShow(why);
+      }
       stopSpeaking(); decorate(out.body); saveTurns(); setState("idle");
       if (voiceOpen() && e?.code !== "cancelled") speak(out.t.textContent); else voiceReady();
     } finally {
@@ -1213,6 +1221,7 @@ Nå: ${WEEKDAY.format(new Date())} (dato ${localDate()}).
   // claude.ai pages may not use the microphone, so inside claude.ai iCONIC hands the listening to the
   // device's own dictation (Fn Fn on Mac, 🎤 on iPhone) and sends the message itself when you pause.
   // The standalone version (its own web address) listens with the real microphone instead.
+  const isIOS = /iPhone|iPad|iPod/.test(navigator.userAgent) || (/Mac/.test(navigator.platform) && navigator.maxTouchPoints > 1);
   const isMac = /Mac/.test(navigator.platform) && !/iPhone|iPad/.test(navigator.userAgent) && !(navigator.maxTouchPoints > 1);
   const inClaude = Boolean(window.claude?.use) && !window.claude.standalone;
   let recognitionWorks = !inClaude && Boolean(Recognition) && local.get("recognition", true);
@@ -1232,17 +1241,19 @@ Nå: ${WEEKDAY.format(new Date())} (dato ${localDate()}).
     rec.lang = "nb-NO"; rec.interimResults = true; rec.continuous = false;
     let finalText = "";
     rec.onresult = (ev) => { let interim = ""; for (let i = ev.resultIndex; i < ev.results.length; i++) { if (ev.results[i].isFinal) finalText += ev.results[i][0].transcript; else interim += ev.results[i][0].transcript; } onWords(finalText + interim); };
-    rec.onerror = (ev) => { if (["not-allowed", "service-not-allowed", "audio-capture"].includes(ev.error)) { recognitionWorks = false; local.set("recognition", false); } };
-    rec.onend = () => { if (activeRec === rec) activeRec = null; done(finalText.trim()); };
-    stopWake(); activeRec = rec;
-    try { rec.start(); } catch { activeRec = null; recognitionWorks = false; done(""); }
+    let error = "";
+    rec.onerror = (ev) => { error = ev.error; if (["not-allowed", "service-not-allowed", "audio-capture"].includes(ev.error)) { recognitionWorks = false; local.set("recognition", false); } };
+    rec.onend = () => { if (activeRec === rec) activeRec = null; done(finalText.trim(), error); };
+    stopWake(); stopRecognition(); activeRec = rec;
+    try { rec.start(); } catch { activeRec = null; done("", "start-failed"); }
   }
   function stopRecognition() { const r = activeRec; activeRec = null; try { r?.abort(); } catch { /* ignore */ } }
 
   // "Hei iCONIC": while the page is open and idle, listen in the background for the wake words.
   const WAKE = /\b(hei|hey|hallo|hi)\b[\s,.!]*(i[\s-]*kon\w*|ai[\s-]*kon\w*|ikon\w*|iconic\w*|aikonik\w*)/i;
   let wakeRec = null, wakeTimer = null;
-  function wakeWanted() { return !inClaude && recognitionWorks && local.get("wake", true) && !document.hidden && !busy && !activeRec && !voiceOpen() && document.body.dataset.state === "idle"; }
+  // iPhone only lets a page start the microphone right after a tap, so "Hei iCONIC" works on Mac only.
+  function wakeWanted() { return !inClaude && !isIOS && recognitionWorks && local.get("wake", true) && !document.hidden && !busy && !activeRec && !voiceOpen() && document.body.dataset.state === "idle"; }
   function startWake() {
     if (wakeRec || !wakeWanted()) return;
     let rec; try { rec = new Recognition(); } catch { return; }
@@ -2283,20 +2294,35 @@ ${v.note ? `<h2 style="font-size:17px;margin-top:28px">Oppsummering</h2><p>${esc
     $("#voice-hint").innerHTML = voiceHintText();
     if (recognitionWorks) {
       stopRecognition();
-      recognizeOnce((words) => { if (voiceOpen()) { $("#voice-heard").textContent = words; $("#voice-status").textContent = "Jeg hører deg …"; } }, (words) => {
+      recognizeOnce((words) => { if (voiceOpen()) { $("#voice-heard").textContent = words; $("#voice-status").textContent = "Jeg hører deg …"; } }, (words, error) => {
         if (!voiceOpen() || busy) return;
-        if (words) { voiceText.value = words; voiceSend(); }
-        else if (recognitionWorks) { setState("idle"); $("#voice-status").textContent = "Trykk på kula og snakk."; }
-        else voiceListen(); // microphone refused: fall back to the keyboard's dictation
+        if (words) { voiceText.value = words; voiceSend(); return; }
+        setState("idle");
+        $("#voice-status").textContent = micProblem(error) || "Jeg hørte ingenting. Trykk på kula og snakk.";
+        if (!recognitionWorks) { $("#voice-hint").innerHTML = voiceHintText(); voiceText.focus(); } // fall back to the keyboard's dictation
       });
       return;
     }
     voiceText.focus();
   }
+  function micProblem(error) {
+    return ({
+      "not-allowed": isIOS ? "Mikrofonen er blokkert. Åpne Innstillinger → Apper → Safari → Mikrofon → Tillat, og last inn siden på nytt." : "Mikrofonen er blokkert. Klikk på hengelåsen ved adressen og tillat mikrofon.",
+      "service-not-allowed": isIOS ? "Talegjenkjenning er slått av. Slå på Siri og diktering i Innstillinger, eller bruk 🎤 på tastaturet." : "Talegjenkjenning er ikke tilgjengelig i denne nettleseren. Bruk Chrome eller Safari.",
+      "audio-capture": "Fant ingen mikrofon.",
+      network: "Talegjenkjenningen trenger internett. Sjekk nettet og prøv igjen.",
+      "start-failed": "Mikrofonen startet ikke. Trykk på kula igjen.",
+    })[error] || "";
+  }
   // Called when an answer is finished (spoken or not). Waits until ask() has fully settled, then listens again.
+  // iPhone refuses to start the microphone without a fresh tap, so there it waits for the next tap on the orb.
   function voiceReady() {
     if (!voiceOpen()) return;
-    setTimeout(() => { if (voiceOpen() && !busy && document.body.dataset.state !== "speaking") voiceListen(); }, 400);
+    setTimeout(() => {
+      if (!voiceOpen() || busy || document.body.dataset.state === "speaking") return;
+      if (isIOS && recognitionWorks) { setState("idle"); $("#voice-status").textContent = "Trykk på kula for å svare."; return; }
+      voiceListen();
+    }, 400);
   }
   function openVoice(quiet) {
     stopSpeaking(); stopWake(); showView("home");
@@ -2322,6 +2348,37 @@ ${v.note ? `<h2 style="font-size:17px;margin-top:28px">Oppsummering</h2><p>${esc
     $("#voice-status").textContent = "Jeg hører deg …";
     clearTimeout(voiceTimer); voiceTimer = setTimeout(voiceSend, 2000);
   });
+  // Checks the three things a voice answer needs, one by one, and says plainly which one fails.
+  $("#btn-test").addEventListener("click", () => {
+    const out = $("#test-result"); out.hidden = false;
+    const lines = { speech: "Lyd: tester …", mic: "Mikrofon: tester …", ai: "AI: tester …" };
+    const show = () => { out.textContent = Object.values(lines).join("\n"); };
+    show();
+    if (!synth) lines.speech = "✗ Lyd: denne nettleseren kan ikke lese opp tekst.";
+    else {
+      const voice = pickVoice(); const u = new SpeechSynthesisUtterance("Hei, dette er iCONIC."); u.lang = voice?.lang || "nb-NO"; if (voice) u.voice = voice; u.rate = Number(settings.rate);
+      let started = false;
+      u.onstart = () => { started = true; lines.speech = "✓ Lyd: du skal høre «Hei, dette er iCONIC»" + (voice ? " (" + voice.name + ")" : " (ingen norsk stemme funnet)") + (isIOS ? ". Hører du ingenting: slå av lydløs-bryteren." : "."); show(); };
+      u.onerror = (e) => { lines.speech = "✗ Lyd: " + (e.error || "feil"); show(); };
+      try { synth.cancel(); synth.speak(u); } catch { lines.speech = "✗ Lyd: kunne ikke starte."; }
+      setTimeout(() => { if (!started) { lines.speech = "✗ Lyd: nettleseren startet ikke opplesingen." + (settings.speak ? "" : " «Les svar høyt» er av."); show(); } }, 3000);
+    }
+    if (inClaude) lines.mic = "– Mikrofon: claude.ai tillater ikke mikrofon. Bruk 🎤 på tastaturet.";
+    else if (!Recognition) lines.mic = "✗ Mikrofon: denne nettleseren har ikke talegjenkjenning. Bruk Safari eller Chrome, eller 🎤 på tastaturet.";
+    else {
+      recognitionWorks = true; local.set("recognition", true);
+      lines.mic = "… Mikrofon: si noe nå";
+      recognizeOnce((w) => { lines.mic = "… Mikrofon hører: " + w; show(); }, (w, error) => {
+        lines.mic = w ? "✓ Mikrofon: hørte «" + w + "»" : "✗ Mikrofon: " + (micProblem(error) || "hørte ingenting (" + (error || "stille") + ")"); show();
+      });
+    }
+    if (!sample) lines.ai = "✗ AI: ikke tilkoblet.";
+    else sample("Svar bare med ordet OK.", { modelTier: "quick", cache: false })
+      .then((r) => { lines.ai = /ok/i.test(r.text) ? "✓ AI: svarer" : "✓ AI: svarte «" + r.text.slice(0, 40) + "»"; show(); })
+      .catch((e) => { lines.ai = "✗ AI: " + friendlyError(e?.code) + (e?.message && e.message !== e.code ? " (" + e.message.slice(0, 120) + ")" : ""); show(); });
+    show();
+  });
+
   $("#voice-form").addEventListener("submit", (e) => { e.preventDefault(); voiceSend(); });
   $("#voice-close").addEventListener("click", closeVoice);
   voiceDlg.addEventListener("cancel", (e) => { e.preventDefault(); closeVoice(); });
