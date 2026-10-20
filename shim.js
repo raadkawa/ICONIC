@@ -301,7 +301,7 @@
       </div>
       <div class="field">
         <label for="ai-key">Nøkkel</label>
-        <input id="ai-key" type="password" autocomplete="off" spellcheck="false" placeholder="Lim inn nøkkelen her">
+        <div style="display:flex;gap:8px"><input id="ai-key" type="password" autocomplete="off" spellcheck="false" placeholder="Lim inn nøkkelen her" style="flex:1;min-width:0"><button type="button" id="ai-paste" class="btn">Lim inn</button></div>
         <small id="ai-help"></small>
       </div>
       <p id="ai-status" class="muted" role="status"></p>
@@ -327,9 +327,18 @@
       }
     }
     dlg.querySelector("#ai-test").addEventListener("click", test);
+    // Save first, then test: a failed test must never throw the key away.
     dlg.querySelector("#ai-save").addEventListener("click", async () => {
-      if (!(await test())) return;
-      saveCfg(read()); setTimeout(() => dlg.close(), 500);
+      const c = read();
+      if (!c.key) { status.textContent = "Lim inn nøkkelen først."; return; }
+      saveCfg(c);
+      navigator.storage?.persist?.().catch(() => {});
+      if (await test()) { status.textContent = "✓ Lagret. Du trenger ikke legge den inn igjen."; setTimeout(() => dlg.close(), 900); }
+      else status.textContent = "Lagret, men den virker ikke ennå: " + status.textContent;
+    });
+    dlg.querySelector("#ai-paste").addEventListener("click", async () => {
+      try { const t = (await navigator.clipboard.readText()).trim(); if (t) { dlg.querySelector("#ai-key").value = t; status.textContent = "Limt inn. Trykk Lagre."; } }
+      catch { status.textContent = "Trykk lenge i feltet og velg «Lim inn»."; }
     });
   }
 
@@ -341,6 +350,7 @@
       b.addEventListener("click", () => { document.querySelector("#settings").close(); openSetup(); });
       actions.prepend(b);
     }
-    if (!cfg().key) setTimeout(openSetup, 600);
+    if (cfg().key) navigator.storage?.persist?.().catch(() => {});
+    else setTimeout(openSetup, 600);
   });
 })();
