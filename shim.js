@@ -305,9 +305,16 @@
         <small id="ai-help"></small>
       </div>
       <p id="ai-status" class="muted" role="status"></p>
-      <div class="sheet-actions">
+      <div id="ai-qr" hidden style="text-align:center;margin:4px 0 12px">
+        <div id="ai-qr-code" style="background:#fff;border-radius:16px;padding:12px;width:220px;margin:0 auto"></div>
+        <p class="muted" style="font-size:14px">Åpne <b>Kamera</b> på iPhone, pek på koden og trykk på lenken. Ikke vis koden til andre – den inneholder nøkkelen din.</p>
+        <button type="button" id="ai-copy-link" class="btn">Kopier lenke i stedet</button>
+      </div>
+      <div class="sheet-actions" style="flex-wrap:wrap">
+        <button type="button" id="ai-connect" class="btn">📱 Koble til iPhone</button>
         <button type="button" id="ai-test" class="btn">Test</button>
         <button type="button" id="ai-save" class="btn primary">Lagre</button>
+        <button value="close" class="btn">Lukk</button>
       </div>
     </form>`;
     document.body.append(dlg);
@@ -333,13 +340,43 @@
       if (!c.key) { status.textContent = "Lim inn nøkkelen først."; return; }
       saveCfg(c);
       navigator.storage?.persist?.().catch(() => {});
-      if (await test()) { status.textContent = "✓ Lagret. Du trenger ikke legge den inn igjen."; setTimeout(() => dlg.close(), 900); }
+      if (await test()) status.textContent = "✓ Lagret. Du trenger ikke legge den inn igjen. Vil du ha iCONIC på iPhone også? Trykk 📱 Koble til iPhone.";
       else status.textContent = "Lagret, men den virker ikke ennå: " + status.textContent;
+    });
+    // A link that carries the key in the part after "#", which browsers never send to any server.
+    const connectLink = () => location.origin + location.pathname + "#connect=" + b64url(JSON.stringify({ p: cfg().provider, k: cfg().key }));
+    dlg.querySelector("#ai-connect").addEventListener("click", async () => {
+      if (!cfg().key) { status.textContent = "Lagre nøkkelen her først, så lager jeg koden."; return; }
+      const box = dlg.querySelector("#ai-qr");
+      if (!box.hidden) { box.hidden = true; return; }
+      try {
+        await loadQr();
+        const qr = window.qrcode(0, "M"); qr.addData(connectLink()); qr.make();
+        dlg.querySelector("#ai-qr-code").innerHTML = qr.createSvgTag({ cellSize: 4, margin: 0, scalable: true });
+        box.hidden = false; status.textContent = "";
+      } catch { status.textContent = "Klarte ikke å lage koden. Bruk «Kopier lenke» og send den til deg selv."; box.hidden = false; }
+    });
+    dlg.querySelector("#ai-copy-link").addEventListener("click", async () => {
+      try { await navigator.clipboard.writeText(connectLink()); status.textContent = "Lenken er kopiert. Send den til deg selv (f.eks. AirDrop) og åpne den på iPhone."; }
+      catch { status.textContent = "Kunne ikke kopiere."; }
     });
     dlg.querySelector("#ai-paste").addEventListener("click", async () => {
       try { const t = (await navigator.clipboard.readText()).trim(); if (t) { dlg.querySelector("#ai-key").value = t; status.textContent = "Limt inn. Trykk Lagre."; } }
       catch { status.textContent = "Trykk lenge i feltet og velg «Lim inn»."; }
     });
+  }
+
+  const b64url = (t) => btoa(String.fromCharCode(...new TextEncoder().encode(t))).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
+  const unb64url = (t) => new TextDecoder().decode(Uint8Array.from(atob(t.replace(/-/g, "+").replace(/_/g, "/")), (c) => c.charCodeAt(0)));
+  let qrLoading;
+  const loadQr = () => qrLoading ||= new Promise((ok, bad) => { const sc = document.createElement("script"); sc.src = "qrcode.js"; sc.onload = ok; sc.onerror = bad; document.head.append(sc); });
+
+  // Opened from the "Koble til iPhone" code: take the key, then wipe it from the address bar and history.
+  let connected = false;
+  const m = location.hash.match(/connect=([\w-]+)/);
+  if (m) {
+    try { const c = JSON.parse(unb64url(m[1])); if (c.k) { saveCfg({ provider: c.p === "claude" ? "claude" : "gemini", key: String(c.k) }); connected = true; } } catch { /* bad link */ }
+    history.replaceState(null, "", location.pathname + location.search);
   }
 
   // Add "AI-nøkkel" to the app's settings, and ask for a key on first start.
@@ -350,6 +387,7 @@
       b.addEventListener("click", () => { document.querySelector("#settings").close(); openSetup(); });
       actions.prepend(b);
     }
+    if (connected) { openSetup(); dlg.querySelector("#ai-status").textContent = "✓ Koblet til! Nøkkelen er lagret på denne enheten. Trykk Test eller lukk."; }
     if (cfg().key) navigator.storage?.persist?.().catch(() => {});
     else setTimeout(openSetup, 600);
   });
