@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' https://cdnjs.cloudflare.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; connect-src https://api.anthropic.com https://generativelanguage.googleapis.com; img-src 'self' data: blob:; object-src 'none'; base-uri 'none'">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' https://cdnjs.cloudflare.com; style-src 'self' 'unsafe-inline'; connect-src https://api.anthropic.com https://generativelanguage.googleapis.com; img-src 'self' data: blob:; object-src 'none'; base-uri 'none'">
 <meta name="referrer" content="no-referrer">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
@@ -15,51 +15,52 @@
 <link rel="apple-touch-icon" href="icon-180.png">
 <script src="shim.js"></script>
 <title>iCONIC</title>
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&family=Geist+Mono:wght@500&display=swap">
 <style>
-  /* Layout: an app shell — header with tabs, one scrolling view, a floating composer.
+  /* Layout: an app shell in the style of Apple's own apps — a navigation bar, one scrolling view of inset
+     grouped lists, a floating composer and a translucent tab bar (a sidebar on wide screens).
      The signature is the light that runs around the screen edge while iCONIC listens, thinks or speaks. */
   :root {
-    --bg: #f3f4f7;
+    --bg: #f2f2f7;
     --surface: #ffffff;
-    --surface-2: #eceef3;
-    --surface-3: #e2e5ec;
-    --line: rgba(17, 19, 28, 0.08);
-    --fg: #101218;
-    --muted: #686d7d;
-    --faint: #9aa0ae;
-    --primary: #101218;
+    --surface-2: rgba(118, 118, 128, 0.12);
+    --surface-3: rgba(118, 118, 128, 0.2);
+    --line: rgba(60, 60, 67, 0.16);
+    --fg: #000000;
+    --muted: #8a8a8e;
+    --faint: #c4c4c7;
+    --accent: #007aff;
+    --primary: #007aff;
     --on-primary: #ffffff;
-    --bad: #e2434b;
-    --warn: #d27a22;
-    --good: #23935a;
+    --bad: #ff3b30;
+    --warn: #ff9500;
+    --good: #34c759;
     --glow-1: #ff8a4c;
     --glow-2: #b25cff;
     --glow-3: #3da7ff;
     --glow-4: #ff5fa2;
-    --shadow: 0 1px 2px rgba(17, 19, 28, 0.04), 0 10px 30px rgba(17, 19, 28, 0.07);
-    --blur-bg: rgba(243, 244, 247, 0.78);
-    --font: "Geist", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
-    --mono: "Geist Mono", ui-monospace, "SF Mono", Menlo, monospace;
+    --seg-on: #ffffff;
+    --shadow: none;
+    --float: 0 4px 24px rgba(0, 0, 0, 0.08);
+    --blur-bg: rgba(249, 249, 251, 0.78);
+    --font: -apple-system, BlinkMacSystemFont, "SF Pro Text", "SF Pro Display", "Helvetica Neue", "Segoe UI", system-ui, sans-serif;
+    --mono: ui-monospace, "SF Mono", Menlo, monospace;
   }
   @media (prefers-color-scheme: dark) {
     :root:not([data-theme="light"]) {
-      --bg: #09090c; --surface: #15161b; --surface-2: #1d1e25; --surface-3: #272934;
-      --line: rgba(255, 255, 255, 0.08); --fg: #f3f4f6; --muted: #8d92a1; --faint: #5f6371;
-      --primary: #f3f4f6; --on-primary: #09090c; --bad: #ff6369; --warn: #f0a24e; --good: #4cc38a;
-      --shadow: 0 1px 0 rgba(255, 255, 255, 0.03) inset, 0 10px 30px rgba(0, 0, 0, 0.35);
-      --blur-bg: rgba(9, 9, 12, 0.72);
+      --bg: #000000; --surface: #1c1c1e; --surface-2: rgba(118, 118, 128, 0.24); --surface-3: rgba(118, 118, 128, 0.36);
+      --line: rgba(84, 84, 88, 0.6); --fg: #ffffff; --muted: #98989f; --faint: #48484a;
+      --accent: #0a84ff; --primary: #0a84ff; --on-primary: #ffffff; --bad: #ff453a; --warn: #ff9f0a; --good: #30d158;
+      --seg-on: #636366; --float: 0 4px 24px rgba(0, 0, 0, 0.5);
+      --blur-bg: rgba(22, 22, 24, 0.78);
       color-scheme: dark;
     }
   }
   :root[data-theme="dark"] {
-    --bg: #09090c; --surface: #15161b; --surface-2: #1d1e25; --surface-3: #272934;
-    --line: rgba(255, 255, 255, 0.08); --fg: #f3f4f6; --muted: #8d92a1; --faint: #5f6371;
-    --primary: #f3f4f6; --on-primary: #09090c; --bad: #ff6369; --warn: #f0a24e; --good: #4cc38a;
-    --shadow: 0 1px 0 rgba(255, 255, 255, 0.03) inset, 0 10px 30px rgba(0, 0, 0, 0.35);
-    --blur-bg: rgba(9, 9, 12, 0.72);
+    --bg: #000000; --surface: #1c1c1e; --surface-2: rgba(118, 118, 128, 0.24); --surface-3: rgba(118, 118, 128, 0.36);
+    --line: rgba(84, 84, 88, 0.6); --fg: #ffffff; --muted: #98989f; --faint: #48484a;
+    --accent: #0a84ff; --primary: #0a84ff; --on-primary: #ffffff; --bad: #ff453a; --warn: #ff9f0a; --good: #30d158;
+    --seg-on: #636366; --float: 0 4px 24px rgba(0, 0, 0, 0.5);
+    --blur-bg: rgba(22, 22, 24, 0.78);
     color-scheme: dark;
   }
 
@@ -482,6 +483,88 @@
     .chips { flex-wrap: wrap; overflow: visible; }
   }
 
+  /* ---------- Apple layer: system font, inset grouped lists, iOS controls ---------- */
+  body { font-size: 17px; letter-spacing: -0.01em; }
+  :focus-visible { outline-color: var(--accent); }
+  .wordmark { letter-spacing: 0.14em; font-size: 15px; }
+  .icon-btn { color: var(--accent); border-radius: 50%; }
+  .icon-btn:hover { background: var(--surface-2); color: var(--accent); }
+  .icon-btn svg { width: 22px; height: 22px; }
+  .hero2 h1 { font-size: 34px; font-weight: 700; letter-spacing: -0.02em; }
+  .hero-sub { font-size: 17px; }
+  .block { margin-top: 26px; }
+  .block-head { margin: 0 4px 8px; }
+  .block-head h2, .section-title { font-size: 22px; font-weight: 700; letter-spacing: -0.02em; text-transform: none; color: var(--fg); }
+  .section-title { margin: 26px 4px 8px; }
+  .section-title.bad { color: var(--bad); }
+  .block-head a, .block-head .link-btn { color: var(--accent); text-decoration: none; font-size: 17px; }
+  .link-btn { color: var(--accent); text-decoration: none; }
+  .rows, .group, .panel, .kpi, .card, .draft { border: 0; border-radius: 14px; box-shadow: none; }
+  .r, .row { border-top: 0; position: relative; }
+  .r + .r::before, .row + .row::before { content: ""; position: absolute; top: 0; right: 0; left: 46px; border-top: 0.5px solid var(--line); }
+  .r { padding: 11px 16px; font-size: 17px; min-height: 44px; }
+  .row { padding: 12px 16px; }
+  .r .ic { border-radius: 7px; width: 26px; height: 26px; }
+  .r .act { border: 0; background: var(--surface-2); color: var(--accent); border-radius: 999px; padding: 4px 12px; font-weight: 600; }
+  .chip { border: 0; background: var(--surface); color: var(--accent); font-weight: 500; font-size: 15px; padding: 8px 14px; }
+  .chip:hover { background: var(--surface-2); }
+  .btn { border: 0; background: var(--surface-2); color: var(--accent); font-weight: 600; font-size: 15px; padding: 9px 16px; }
+  .btn:hover { background: var(--surface-3); }
+  .btn.primary { background: var(--accent); color: #fff; }
+  .send { background: var(--accent); color: #fff; width: 34px; height: 34px; align-self: flex-end; margin: 3px; }
+  .composer { border-radius: 22px; border: 0.5px solid var(--line); box-shadow: var(--float); padding: 4px 4px 4px 6px; }
+  .composer textarea { font-size: 17px; padding: 7px 4px; }
+  .msg.user { background: var(--accent); color: #fff; border-radius: 20px 20px 6px 20px; }
+  .msg.bot { font-size: 17px; }
+  .check { border: 1.5px solid var(--faint); }
+  .row .del { color: var(--bad); }
+  .check:checked { background: var(--accent); border-color: var(--accent); }
+  .check:checked::after { border-color: #fff; }
+  .seg { background: var(--surface-2); border-radius: 9px; padding: 2px; }
+  .seg button { border-radius: 7px; padding: 6px; font-size: 14px; font-weight: 500; color: var(--fg); }
+  .seg button[aria-pressed="true"] { background: var(--seg-on); box-shadow: 0 3px 8px rgba(0, 0, 0, 0.12), 0 3px 1px rgba(0, 0, 0, 0.04); font-weight: 600; }
+  .switch { width: 51px; height: 31px; border-radius: 16px; background: var(--surface-3); }
+  .switch::after { width: 27px; height: 27px; top: 2px; left: 2px; box-shadow: 0 3px 8px rgba(0, 0, 0, 0.15), 0 1px 1px rgba(0, 0, 0, 0.16); }
+  .switch:checked { background: var(--good); }
+  .switch:checked::after { transform: translateX(20px); }
+  .field input[type="text"], .field select, .form-grid input, .form-grid select, .sheet textarea, .quick-add input, .vi input { border: 0; background: var(--surface-2); border-radius: 10px; box-shadow: none; }
+  .quick-add input { background: var(--surface); }
+  .field { border-bottom: 0.5px solid var(--line); }
+  .sheet { border: 0; border-radius: 22px; box-shadow: var(--float); }
+  .sheet h2 { font-size: 22px; font-weight: 700; }
+  .sheet::backdrop { background: rgba(0, 0, 0, 0.3); backdrop-filter: none; }
+  .notice { background: var(--surface); border-radius: 14px; }
+  .kpi .label, .card .label, .ss-kpi span { text-transform: none; letter-spacing: 0; font-size: 13px; }
+  .dock { background: linear-gradient(to top, var(--bg) 55%, transparent); }
+
+  /* Tab bar: icons over labels at the bottom, like iPhone apps */
+  .tab svg { width: 24px; height: 24px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; flex: none; }
+  .tab .count { background: var(--bad); color: #fff; }
+  @media (max-width: 959px) {
+    .app { padding-bottom: calc(52px + env(safe-area-inset-bottom, 0px)); }
+    .tabs {
+      position: fixed; left: 0; right: 0; bottom: 0; z-index: 20; border-radius: 0; gap: 0;
+      padding: 4px max(8px, env(safe-area-inset-left, 0px)) calc(2px + env(safe-area-inset-bottom, 0px));
+      background: var(--blur-bg); -webkit-backdrop-filter: saturate(180%) blur(20px); backdrop-filter: saturate(180%) blur(20px);
+      border-top: 0.5px solid var(--line);
+    }
+    .tab { flex-direction: column; gap: 1px; padding: 3px 0 2px; font-size: 10px; font-weight: 500; color: var(--muted); border-radius: 0; letter-spacing: 0; }
+    .tab[aria-selected="true"] { background: transparent; box-shadow: none; color: var(--accent); }
+    .tab .count { position: absolute; top: 0; left: calc(50% + 6px); min-width: 18px; font-size: 11px; line-height: 18px; padding: 0 5px; }
+  }
+  @media (min-width: 960px) {
+    .header { background: var(--bg); border-right: 0.5px solid var(--line); }
+    .tab { justify-content: flex-start; gap: 10px; font-size: 15px; color: var(--fg); border-radius: 8px; padding: 7px 10px; }
+    .tab svg { width: 20px; height: 20px; color: var(--accent); }
+    .tab .count { margin-left: auto; background: transparent; color: var(--muted); }
+    .tab[aria-selected="true"] { background: var(--surface-3); }
+  }
+  /* Sheets slide up from the bottom on phones */
+  @media (max-width: 520px) {
+    .sheet { width: 100%; max-width: 100%; margin: auto 0 0; border-radius: 22px 22px 0 0; max-height: 92%; overflow-y: auto; padding-bottom: calc(22px + env(safe-area-inset-bottom, 0px)); animation: sheetup 0.32s cubic-bezier(0.2, 0.9, 0.3, 1); }
+  }
+  @keyframes sheetup { from { transform: translateY(100%); } to { transform: none; } }
+
   @media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation-duration: 0.001s !important; animation-iteration-count: 1 !important; transition: none !important; } }
 </style>
 </head>
@@ -503,11 +586,11 @@
       </div>
     </div>
     <nav class="tabs" role="tablist" aria-label="Visninger">
-      <button class="tab" role="tab" id="tab-home" data-view="home" aria-selected="true">I dag</button>
-      <button class="tab" role="tab" id="tab-tasks" data-view="tasks" aria-selected="false">Oppgaver<span id="count-tasks" class="count" hidden></span></button>
-      <button class="tab" role="tab" id="tab-numbers" data-view="numbers" aria-selected="false">Tall</button>
-      <button class="tab" role="tab" id="tab-calendar" data-view="calendar" aria-selected="false">Kalender</button>
-      <button class="tab" role="tab" id="tab-notes" data-view="notes" aria-selected="false">Notater</button>
+      <button class="tab" role="tab" id="tab-home" data-view="home" aria-selected="true"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3.5 10.5 12 4l8.5 6.5V20a1 1 0 0 1-1 1H15v-6H9v6H4.5a1 1 0 0 1-1-1z"/></svg><span>I dag</span></button>
+      <button class="tab" role="tab" id="tab-tasks" data-view="tasks" aria-selected="false"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M10 6h10M10 12h10M10 18h10"/><path d="m3.5 6 1.5 1.5L7.5 5M3.5 12l1.5 1.5L7.5 11M3.5 18l1.5 1.5L7.5 17"/></svg><span>Oppgaver</span><span id="count-tasks" class="count" hidden></span></button>
+      <button class="tab" role="tab" id="tab-numbers" data-view="numbers" aria-selected="false"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 20v-7M12 20V5M19 20v-10"/></svg><span>Tall</span></button>
+      <button class="tab" role="tab" id="tab-calendar" data-view="calendar" aria-selected="false"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3.5" y="5" width="17" height="15.5" rx="2.5"/><path d="M3.5 10h17M8 3v4M16 3v4"/></svg><span>Kalender</span></button>
+      <button class="tab" role="tab" id="tab-notes" data-view="notes" aria-selected="false"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 3.5h8.5L19 8v12.5H6z"/><path d="M14 3.5V8.5h5M9 13h7M9 17h5"/></svg><span>Notater</span></button>
     </nav>
   </header>
 
@@ -594,7 +677,7 @@
         <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 12.5l-7.8 7.8a5 5 0 0 1-7.1-7.1l8.5-8.5a3.3 3.3 0 0 1 4.7 4.7l-8.5 8.5a1.7 1.7 0 0 1-2.4-2.4l7.8-7.8"/></svg>
       </button>
       <input id="attach-input" type="file" accept="image/*,.csv,.txt,.md,.json,.xlsx,.xls" multiple hidden>
-      <textarea id="text" rows="1" placeholder="Spør iCONIC om alt, eller + for oppgave" aria-label="Melding til iCONIC"></textarea>
+      <textarea id="text" rows="1" placeholder="Spør iCONIC om alt" aria-label="Melding til iCONIC"></textarea>
       <button id="send" type="submit" class="send" aria-label="Send" disabled>
         <svg id="send-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 19V5M6 11l6-6 6 6"/></svg>
       </button>
